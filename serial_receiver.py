@@ -2,7 +2,6 @@ import logging
 import time
 
 import numpy as np
-import zmq
 from PyQt6 import QtCore
 
 

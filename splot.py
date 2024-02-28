@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 import logging
-import serial
 import sys
 
-import matplotlib.pyplot as plt
 import numpy as np
-import scipy.optimize
+import pyqtgraph as pg
+import serial
 import serial.tools.list_ports
 from PyQt6 import QtCore, QtWidgets, uic
-import pyqtgraph as pg
 
 from serial_receiver import SerialReceiver
 from stream_processor import StreamProcessor
-
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s")
 logger = logging.getLogger(__name__)
