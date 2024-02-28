@@ -46,10 +46,6 @@ class Ui(QtWidgets.QMainWindow):
         self.serialStopBitsComboBox.addItems([str(x) for x in serial.serialutil.SerialBase.STOPBITS])
         self.serialParityComboBox.addItems([str(x) for x in serial.serialutil.SerialBase.PARITIES])
 
-        """ TODO:
-        serial.serialutil.SerialBase.BYTESIZES
-        """
-
     @QtCore.pyqtSlot(int)
     def on_serialPortComboBox_activated(self, index):
         logger.info(f"you changed the serial port to index {index}!")

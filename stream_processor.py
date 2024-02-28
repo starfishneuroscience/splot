@@ -109,8 +109,8 @@ class StreamProcessor:
                 return
 
             # messages to streams (e.g. 8 byte message to 2 uint8s, 1 uint16, 1 uint32):
-            # holy shit the numpy parser is amazing
-            # see docs: https://numpy.org/doc/stable/reference/arrays.dtypes.html#arrays-dtypes-constructing
+            # the numpy parser is amazing, see docs:
+            #   https://numpy.org/doc/stable/reference/arrays.dtypes.html#arrays-dtypes-constructing
             data = np.frombuffer(np.concatenate(messages), self.binary_dtype)
             data = rfn.structured_to_unstructured(data)
             data = data[:, 1:]  # drop 1st column, it's the delimiter which is constant by definition
