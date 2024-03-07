@@ -85,12 +85,12 @@ class StreamProcessor:
             for message in messages:
                 nums = re.findall(r"\b\d+", message)
                 nums = np.array(nums, dtype=float)
-                logger.debug(f'parsed {message=} to {nums=}')
+                logger.debug(f"parsed {message=} to {nums=}")
                 if len(nums) >= self.plot_buffer.shape[1]:
-                    self.plot_buffer[self.write_ptr] = nums[:self.plot_buffer.shape[1]]
+                    self.plot_buffer[self.write_ptr] = nums[: self.plot_buffer.shape[1]]
                 else:
-                    self.plot_buffer[self.write_ptr, :len(nums)] = nums
-                    self.plot_buffer[self.write_ptr, len(nums):] = np.nan
+                    self.plot_buffer[self.write_ptr, : len(nums)] = nums
+                    self.plot_buffer[self.write_ptr, len(nums) :] = np.nan
                 self.write_ptr = (self.write_ptr + 1) % self.plot_buffer.shape[0]
 
         elif self.binary:
