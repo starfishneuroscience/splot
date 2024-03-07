@@ -23,12 +23,12 @@ class StreamProcessor:
         binary: bool,
         binary_dtype_string: str,
         binary_message_length: int,
+        ascii_num_streams: int,
     ):
         # future parameters: long_or_wide,
         super().__init__()
         self.running = False
         self.serial_receiver = serial_receiver
-        self.message_delimiter = message_delimiter
 
         self.binary = binary
         self.binary_message_length = binary_message_length
@@ -40,9 +40,11 @@ class StreamProcessor:
         if self.binary:
             self.binary_dtype = np.dtype(binary_dtype_string)
             num_streams = len(self.binary_dtype) - 1
-            self.message_delimiter = int(self.message_delimiter) % 256
+            self.message_delimiter = int(message_delimiter) % 256
         else:
-            pass
+            num_streams = ascii_num_streams
+            # process escape characters correctly
+            self.message_delimiter = bytes(message_delimiter, "utf-8").decode("unicode_escape")
 
         self.plot_buffer = np.full((plot_buffer_length, num_streams), np.nan, dtype=float)
 
@@ -70,18 +72,33 @@ class StreamProcessor:
         num_bytes_read = len(new_data)
 
         if not self.binary:
-            return  # TODO
-            # for message in messages:
-            #     nums = re.findall(r"\b\d+\b", message)
+            new_data = new_data.tobytes().decode("ascii")
+            if self.message_delimiter not in new_data:
+                return
+            messages = new_data.split(self.message_delimiter)
+
+            # drop last message (if new_data ends in delimiter, last message will be empty "",
+            # and if new_data doesnt end in delimiter, we dont know its a complete message)
+            num_bytes_read -= len(messages[-1])
+            messages = messages[:-1]
+
+            for message in messages:
+                nums = re.findall(r"\b\d+", message)
+                nums = np.array(nums, dtype=float)
+                logger.debug(f'parsed {message=} to {nums=}')
+                if len(nums) >= self.plot_buffer.shape[1]:
+                    self.plot_buffer[self.write_ptr] = nums[:self.plot_buffer.shape[1]]
+                else:
+                    self.plot_buffer[self.write_ptr, :len(nums)] = nums
+                    self.plot_buffer[self.write_ptr, len(nums):] = np.nan
+                self.write_ptr = (self.write_ptr + 1) % self.plot_buffer.shape[0]
 
         elif self.binary:
-            """
-            # if we see a message delimiter and we're not currently in a message,
-            # start a message, run to end of fixed-width, wait for next delimiter
-            """
+            # preliminary pass - split on delimiter
             delimiter_indices = np.where(new_data == self.message_delimiter)[0]
             if len(delimiter_indices) == 0:
                 return
+            # remove delimiters that would make messages too short (must be part of data)
             valid_delimiter_indices = [delimiter_indices[0]]
             for index in delimiter_indices:
                 if index - valid_delimiter_indices[-1] >= self.binary_message_length:

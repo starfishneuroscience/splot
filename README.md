@@ -22,4 +22,3 @@ Swiss army knife to plot and assess data being passed over a serial interface.
 In progress:
     - handle sockets, not just serial ports. you can type in a tcp/udp address into "source" and it will connect automatically or fail and alert you
     - handle ascii messages with numerical fields
-
