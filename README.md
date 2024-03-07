@@ -14,9 +14,12 @@ Swiss army knife to plot and assess data being passed over a serial interface.
     - add option for setting a 'counter' field and create a 'data-dropped flag' or online estimator for dropped messages
     - add checksum checking for each message, and an indicator for how often bad data is seen
 - Message parsing:
-    - handle ascii messages with numerical fields
     - in binary, allow multi-byte message-delimiters
     - handle uart with different frame sizes
     - handle protobuf
     - handle json
-    - handle sockets, not just serial ports?
+
+In progress:
+    - handle sockets, not just serial ports. you can type in a tcp/udp address into "source" and it will connect automatically or fail and alert you
+    - handle ascii messages with numerical fields
+

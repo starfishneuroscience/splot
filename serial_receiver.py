@@ -16,10 +16,11 @@ class SerialReceiver(QtCore.QThread):
     data_received = QtCore.pyqtSignal()
     data_rate = QtCore.pyqtSignal(int)  # emitted every second
 
-    def __init__(self, serial, buffer_length, read_chunk_size):
+    def __init__(self, read_function, buffer_length, read_chunk_size):
+        # read_function must take an argument for the number of bytes to read
         super().__init__()
         self.running = False
-        self.serial = serial
+        self.read_function = read_function
         self.read_chunk_size = read_chunk_size
 
         self.ring_buffer = np.empty((buffer_length,), dtype="B")
@@ -37,9 +38,9 @@ class SerialReceiver(QtCore.QThread):
         while self.running:
             # get new data and add it to ring buffer
             try:
-                read = self.serial.read(self.read_chunk_size)
+                read = self.read_function(self.read_chunk_size)
             except OSError:
-                logger.error("Couldn't read from serial. Closing serial listener.")
+                logger.error("Couldn't read from connection. Closing serial receiver.")
                 self.stop()
                 break
 

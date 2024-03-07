@@ -66,7 +66,7 @@ class Ui(QtWidgets.QMainWindow):
             timeout=0.010,
         )
         self.serial_receiver = SerialReceiver(
-            serial_connection,
+            read_function = serial_connection.read,
             buffer_length=self.serialBufferSizeSpinBox.value(),
             read_chunk_size=self.serialReadChunkSizeSpinBox.value(),
         )
