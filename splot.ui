@@ -63,6 +63,9 @@
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a serial port attached to the system.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;You can also enter an IP address and port, e.g. &amp;quot;127.0.0.1:19021&amp;quot; to connect to port 19021 on the local machine. By default, splot assumes you want a tcp connection, but you can receive udp data as well by entering &amp;quot;udp://&amp;lt;IP&amp;gt;:port&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
             <property name="editable">
              <bool>true</bool>
             </property>
@@ -337,6 +340,9 @@
                      <horstretch>0</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
+                   </property>
+                   <property name="toolTip">
+                    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Binary messages are parsed by numpy as structured datatypes (&lt;a href=&quot;https://numpy.org/doc/stable/user/basics.rec.html#structured-datatypes&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://numpy.org/doc/stable/user/basics.rec.html#structured-datatypes&lt;/span&gt;&lt;/a&gt;), which can be specified as comma-separated strings (see also &lt;a href=&quot;https://numpy.org/doc/stable/reference/arrays.dtypes.html#arrays-dtypes-constructing&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://numpy.org/doc/stable/reference/arrays.dtypes.html#arrays-dtypes-constructing&lt;/span&gt;&lt;/a&gt;). For now, it is assumed that each element of the datatype is a scalar, so nested/hierarchical dtypes may produce funky results and errors. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                    </property>
                    <property name="text">
                     <string>u1,u1,u2,u2,u2</string>
