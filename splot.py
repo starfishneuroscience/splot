@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 import logging
+import serial
+import signal
+import socket
 import sys
 
 import numpy as np
@@ -17,9 +20,9 @@ logger = logging.getLogger(__name__)
 
 class Ui(QtWidgets.QMainWindow):
     def __init__(self):
-        super().__init__()  # Call the inherited classes __init__ method
-        uic.loadUi("splot.ui", self)  # Load the .ui file
-        self.show()  # Show the GUI
+        super().__init__()
+        uic.loadUi("splot.ui", self)
+        self.show()
 
         # continually check serial port availability 3x/second
         self.timer = QtCore.QTimer()
@@ -29,6 +32,8 @@ class Ui(QtWidgets.QMainWindow):
         self.serial_receiver = None
         self.stream_processor = None
 
+        self.socket = None  # have to keep this around to properly close it
+
         # timer to update plots at 20 Hz
         self.plot_timer = QtCore.QTimer()
         self.plot_timer.timeout.connect(self.update_stream_plots)
@@ -36,6 +41,7 @@ class Ui(QtWidgets.QMainWindow):
 
         self.plots = []
         self.plot_layout = pg.GraphicsLayoutWidget()
+        # suppress constant debug messages on mac associated with trackpad
         self.plot_layout.viewport().setAttribute(QtCore.Qt.WidgetAttribute.WA_AcceptTouchEvents, False)
         self.plotVBoxLayout.addWidget(self.plot_layout)
 
@@ -43,27 +49,45 @@ class Ui(QtWidgets.QMainWindow):
         self.serialStopBitsComboBox.addItems([str(x) for x in serial.serialutil.SerialBase.STOPBITS])
         self.serialParityComboBox.addItems([str(x) for x in serial.serialutil.SerialBase.PARITIES])
 
+        self.numberOfStreamsLabel.setVisible(False)
+        self.numberOfStreamsSpinBox.setVisible(False)
+
     @QtCore.pyqtSlot(int)
-    def on_serialPortComboBox_activated(self, index):
+    def on_serialPortComboBox_currentIndexChanged(self, index):
         logger.info(f"you changed the serial port to index {index}!")
         self.disconnect_from_serial()
         self.connect_to_serial()
 
     def connect_to_serial(self):
         port = self.serialPortComboBox.currentData()
-        if port is None:
-            return
-        logger.info(f"Trying to connect to: {port}")
+        text = self.serialPortComboBox.currentText()
+        if port is None:  # its either empty or a user-entered string
+            if text == "(not connected)":
+                return
+            else:
+                logger.info(f"Trying to connect to socket: {text}")
+                try:
+                    socket_type = socket.SOCK_DGRAM if text.startswith("udp://") else socket.SOCK_STREAM
+                    self.socket = socket.socket(socket.AF_INET, socket_type)
+                    host, port = text.rsplit(":")
+                    self.socket.connect((host, int(port)))
+                    read_function = self.socket.recv
+                except Exception as e:
+                    logger.error(f"Failed to connect to {text}. Error: {e}")
+                    return
+        else:
+            logger.info(f"Trying to connect to serial port: {port}")
+            serial_connection = serial.Serial(
+                port,
+                baudrate=int(self.serialBaudRateComboBox.currentText()),
+                parity=self.serialParityComboBox.currentText(),
+                stopbits=float(self.serialStopBitsComboBox.currentText()),
+                timeout=0.010,
+            )
+            read_function = serial_connection.read
 
-        serial_connection = serial.Serial(
-            port,
-            baudrate=int(self.serialBaudRateComboBox.currentText()),
-            parity=self.serialParityComboBox.currentText(),
-            stopbits=float(self.serialStopBitsComboBox.currentText()),
-            timeout=0.010,
-        )
         self.serial_receiver = SerialReceiver(
-            serial_connection,
+            read_function=read_function,
             buffer_length=self.serialBufferSizeSpinBox.value(),
             read_chunk_size=self.serialReadChunkSizeSpinBox.value(),
         )
@@ -71,9 +95,9 @@ class Ui(QtWidgets.QMainWindow):
             serial_receiver=self.serial_receiver,
             plot_buffer_length=self.plotLengthSpinBox.value(),
             message_delimiter=self.messageDelimiterLineEdit.text(),
-            binary=True,
+            binary=(self.dataFormatComboBox.currentText() == "binary"),
             binary_dtype_string=self.binaryDtypeStringLineEdit.text(),
-            binary_message_length=self.messageLengthBytesSpinBox.value(),
+            ascii_num_streams=self.numberOfStreamsSpinBox.value(),
         )
         self.serial_receiver.data_received.connect(self.stream_processor.process_new_data)
         self.serial_receiver.data_rate.connect(self.dataRateBpsValueLabel.setNum)
@@ -88,6 +112,8 @@ class Ui(QtWidgets.QMainWindow):
             self.serial_receiver.wait()
             self.serial_receiver.disconnect()  # disconnect all slots
             self.serial_receiver = None
+        if self.socket is not None:
+            self.socket.close()
         self.serialParametersFrame.setEnabled(True)
 
     def update_serial_ports(self):
@@ -102,7 +128,8 @@ class Ui(QtWidgets.QMainWindow):
                 logger.info(f"Detected {port}")
                 self.serialPortComboBox.addItem(text, port)
 
-        # handle deleted entries
+        # handle deleted entries.
+        # Note: any user-entered strings will have itemData=None so won't be deleted
         for port in prev_ports:
             if port not in [p[0] for p in new_ports] + [None]:
                 logger.info(f"Lost {port}")
@@ -133,9 +160,21 @@ class Ui(QtWidgets.QMainWindow):
         self.disconnect_from_serial()
 
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
-        self.stream_processor.change_plot_buffer_length(plot_buffer_length)
+        if self.stream_processor:
+            self.stream_processor.change_plot_buffer_length(plot_buffer_length)
 
+    @QtCore.pyqtSlot(int)
+    def on_dataFormatComboBox_currentIndexChanged(self, index):
+        binary = (index == 0)
+        self.binaryDtypeStringLineEdit.setVisible(binary)
+        self.binaryDtypeStringLabel.setVisible(binary)
+        self.numberOfStreamsLabel.setVisible(not binary)
+        self.numberOfStreamsSpinBox.setVisible(not binary)
+        self.messageDelimiterLineEdit.setText("0" if binary else "\\n")
 
-app = QtWidgets.QApplication(sys.argv)
-window = Ui()
-app.exec()
+if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    app = QtWidgets.QApplication(sys.argv)
+    window = Ui()
+    app.exec()
