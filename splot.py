@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import logging
 import serial
+import signal
 import socket
 import sys
 
@@ -50,8 +51,11 @@ class Ui(QtWidgets.QMainWindow):
         self.serialStopBitsComboBox.addItems([str(x) for x in serial.serialutil.SerialBase.STOPBITS])
         self.serialParityComboBox.addItems([str(x) for x in serial.serialutil.SerialBase.PARITIES])
 
+        self.numberOfStreamsLabel.setVisible(False)
+        self.numberOfStreamsSpinBox.setVisible(False)
+
     @QtCore.pyqtSlot(int)
-    def on_serialPortComboBox_activated(self, index):
+    def on_serialPortComboBox_currentIndexChanged(self, index):
         logger.info(f"you changed the serial port to index {index}!")
         self.disconnect_from_serial()
         self.connect_to_serial()
@@ -95,8 +99,7 @@ class Ui(QtWidgets.QMainWindow):
             message_delimiter=self.messageDelimiterLineEdit.text(),
             binary=(self.dataFormatComboBox.currentText() == "binary"),
             binary_dtype_string=self.binaryDtypeStringLineEdit.text(),
-            binary_message_length=self.messageLengthBytesSpinBox.value(),
-            ascii_num_streams=self.messageLengthBytesSpinBox.value(),  # TODO: HACK. FIX.
+            ascii_num_streams=self.numberOfStreamsSpinBox.value(),
         )
         self.serial_receiver.data_received.connect(self.stream_processor.process_new_data)
         self.serial_receiver.data_rate.connect(self.dataRateBpsValueLabel.setNum)
@@ -159,9 +162,21 @@ class Ui(QtWidgets.QMainWindow):
         self.disconnect_from_serial()
 
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
-        self.stream_processor.change_plot_buffer_length(plot_buffer_length)
+        if self.stream_processor:
+            self.stream_processor.change_plot_buffer_length(plot_buffer_length)
+
+    @QtCore.pyqtSlot(int)
+    def on_dataFormatComboBox_currentIndexChanged(self, index):
+        binary = (index == 0)
+        self.binaryDtypeStringLineEdit.setVisible(binary)
+        self.binaryDtypeStringLabel.setVisible(binary)
+        self.numberOfStreamsLabel.setVisible(not binary)
+        self.numberOfStreamsSpinBox.setVisible(not binary)
 
 
-app = QtWidgets.QApplication(sys.argv)
-window = Ui()
-app.exec()
+if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    app = QtWidgets.QApplication(sys.argv)
+    window = Ui()
+    app.exec()

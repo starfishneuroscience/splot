@@ -17,11 +17,17 @@
    <layout class="QHBoxLayout" name="horizontalLayout">
     <item>
      <widget class="QFrame" name="verticalFrame_2">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
       <layout class="QVBoxLayout" name="verticalLayout_3">
        <item>
         <widget class="QFrame" name="formFrame_3">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -33,10 +39,13 @@
           <enum>QFrame::Plain</enum>
          </property>
          <layout class="QFormLayout" name="sourceFrame">
+          <property name="formAlignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+          </property>
           <item row="0" column="0">
            <widget class="QLabel" name="label_5">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
@@ -207,6 +216,9 @@
                    <verstretch>0</verstretch>
                   </sizepolicy>
                  </property>
+                 <property name="keyboardTracking">
+                  <bool>false</bool>
+                 </property>
                  <property name="minimum">
                   <number>10</number>
                  </property>
@@ -232,6 +244,9 @@
                    <horstretch>0</horstretch>
                    <verstretch>0</verstretch>
                   </sizepolicy>
+                 </property>
+                 <property name="keyboardTracking">
+                  <bool>false</bool>
                  </property>
                  <property name="minimum">
                   <number>1</number>
@@ -295,49 +310,27 @@
                   </widget>
                  </item>
                  <item row="1" column="0">
-                  <widget class="QLabel" name="messageLengthBytesLabel">
+                  <widget class="QLabel" name="messageDelimiterLabel">
                    <property name="text">
-                    <string>Message bytes</string>
+                    <string>Separator byte</string>
                    </property>
                   </widget>
                  </item>
                  <item row="1" column="1">
-                  <widget class="QSpinBox" name="messageLengthBytesSpinBox">
-                   <property name="sizePolicy">
-                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                     <horstretch>0</horstretch>
-                     <verstretch>0</verstretch>
-                    </sizepolicy>
-                   </property>
-                   <property name="minimumSize">
-                    <size>
-                     <width>0</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximum">
-                    <number>999999999</number>
-                   </property>
-                   <property name="value">
-                    <number>8</number>
+                  <widget class="QLineEdit" name="messageDelimiterLineEdit">
+                   <property name="text">
+                    <string>0</string>
                    </property>
                   </widget>
                  </item>
                  <item row="2" column="0">
-                  <widget class="QLabel" name="messageDelimiterLabel">
-                   <property name="text">
-                    <string>Message sep.</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="3" column="0">
                   <widget class="QLabel" name="binaryDtypeStringLabel">
                    <property name="text">
                     <string>Binary format</string>
                    </property>
                   </widget>
                  </item>
-                 <item row="3" column="1">
+                 <item row="2" column="1">
                   <widget class="QLineEdit" name="binaryDtypeStringLineEdit">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -350,36 +343,26 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="4" column="0">
-                  <widget class="QLabel" name="plotLengthLabel">
+                 <item row="3" column="0">
+                  <widget class="QLabel" name="numberOfStreamsLabel">
                    <property name="text">
-                    <string>Plot length</string>
+                    <string>Number of streams</string>
                    </property>
                   </widget>
                  </item>
-                 <item row="4" column="1">
-                  <widget class="QSpinBox" name="plotLengthSpinBox">
+                 <item row="3" column="1">
+                  <widget class="QSpinBox" name="numberOfStreamsSpinBox">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                      <horstretch>0</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
                    </property>
+                   <property name="keyboardTracking">
+                    <bool>false</bool>
+                   </property>
                    <property name="minimum">
-                    <number>10</number>
-                   </property>
-                   <property name="maximum">
-                    <number>100000</number>
-                   </property>
-                   <property name="value">
-                    <number>1000</number>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="2" column="1">
-                  <widget class="QLineEdit" name="messageDelimiterLineEdit">
-                   <property name="text">
-                    <string>0</string>
+                    <number>1</number>
                    </property>
                   </widget>
                  </item>
@@ -397,6 +380,39 @@
                   </size>
                  </property>
                 </spacer>
+               </item>
+               <item>
+                <layout class="QFormLayout" name="formLayout_4">
+                 <item row="0" column="0">
+                  <widget class="QLabel" name="plotLengthLabel">
+                   <property name="text">
+                    <string>Plot length</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="QSpinBox" name="plotLengthSpinBox">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="keyboardTracking">
+                    <bool>false</bool>
+                   </property>
+                   <property name="minimum">
+                    <number>10</number>
+                   </property>
+                   <property name="maximum">
+                    <number>100000</number>
+                   </property>
+                   <property name="value">
+                    <number>1000</number>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
                </item>
                <item>
                 <widget class="QPushButton" name="pausePushButton">

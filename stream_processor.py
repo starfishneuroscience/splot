@@ -22,7 +22,6 @@ class StreamProcessor:
         message_delimiter: str | int,  # used for both binary and ascii
         binary: bool,
         binary_dtype_string: str,
-        binary_message_length: int,
         ascii_num_streams: int,
     ):
         # future parameters: long_or_wide,
@@ -31,8 +30,8 @@ class StreamProcessor:
         self.serial_receiver = serial_receiver
 
         self.binary = binary
-        self.binary_message_length = binary_message_length
         self.binary_dtype = None
+
         self.read_ptr = 0  # read pointer for *SerialReceiver* ringbuffer
 
         self.write_ptr = 0  # write pointer for this class's *plot_buffer*
@@ -94,6 +93,8 @@ class StreamProcessor:
                 self.write_ptr = (self.write_ptr + 1) % self.plot_buffer.shape[0]
 
         elif self.binary:
+            expected_length = self.binary_dtype.itemsize
+
             # preliminary pass - split on delimiter
             delimiter_indices = np.where(new_data == self.message_delimiter)[0]
             if len(delimiter_indices) == 0:
@@ -101,25 +102,25 @@ class StreamProcessor:
             # remove delimiters that would make messages too short (must be part of data)
             valid_delimiter_indices = [delimiter_indices[0]]
             for index in delimiter_indices:
-                if index - valid_delimiter_indices[-1] >= self.binary_message_length:
+                if index - valid_delimiter_indices[-1] >= expected_length:
                     valid_delimiter_indices += [index]
             if valid_delimiter_indices[0] == 0:
                 valid_delimiter_indices.pop(0)
             messages = np.split(new_data, valid_delimiter_indices)
 
             # check if last message is truncated, and if so, remove it
-            if len(messages[-1]) < self.binary_message_length:
+            if len(messages[-1]) < expected_length:
                 num_bytes_read -= len(messages[-1])
                 messages = messages[:-1]
 
             # remove any invalid messages with extra bytes
             message_lengths = np.array([len(msg) for msg in messages], dtype=int)
-            if any(message_lengths != self.binary_message_length):
-                bad_message_lengths = message_lengths[message_lengths != self.binary_message_length]
+            if any(message_lengths != expected_length):
+                bad_message_lengths = message_lengths[message_lengths != expected_length]
                 logger.error(
                     f"{len(bad_message_lengths)} bad message lengths detected! {bad_message_lengths}. Dropping those messages."
                 )
-                messages = [m for m in messages if len(m) == self.binary_message_length]
+                messages = [m for m in messages if len(m) == expected_length]
 
             if len(messages) == 0:
                 # we received either an incomplete packet, or 1+ invalid packets
