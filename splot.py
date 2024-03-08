@@ -172,7 +172,7 @@ class Ui(QtWidgets.QMainWindow):
         self.binaryDtypeStringLabel.setVisible(binary)
         self.numberOfStreamsLabel.setVisible(not binary)
         self.numberOfStreamsSpinBox.setVisible(not binary)
-
+        self.messageDelimiterLineEdit.setText("0" if binary else "\\n")
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal.SIG_DFL)
