@@ -1,4 +1,5 @@
 import logging
+import re
 
 import numpy as np
 from numpy.lib import recfunctions as rfn
