@@ -15,8 +15,6 @@ pip install "git+https://github.com/starfishneuroscience/splot.git"
 and then to run it, run `splot` at the command line.
 
 ## Possible future directions:
-- Packaging/installation:
-  - make splot into a pip-installable package with a command-line hook to run the gui. 
 - UI:
     - allow disabling of certain streams for plotting
     - filters and averaging of signals
