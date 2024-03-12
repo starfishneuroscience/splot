@@ -172,9 +172,13 @@ class Ui(QtWidgets.QMainWindow):
         self.numberOfStreamsSpinBox.setVisible(not binary)
         self.messageDelimiterLineEdit.setText("0" if binary else "\\n")
 
-if __name__ == "__main__":
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
 
+def main():
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     app = QtWidgets.QApplication(sys.argv)
     window = Ui()
     app.exec()
+
+
+if __name__ == "__main__":
+    main()

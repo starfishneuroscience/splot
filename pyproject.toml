@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "splot"
+version = "0.0.1"
+authors = [
+  { name="Nate Cermak", email="nate.cermak@starfishneuro.com" },
+]
+description = "A general-purpose serial plotter"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+  "numpy>=1.24",
+  "pyqt6>=6.5",
+  "pyqtgraph>=0.13.3",
+  "pyserial>=3.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/starfishneuroscience/splot"
+Issues = "https://github.com/starfishneuroscience/splot/issues"
+
+[project.scripts]
+splot = "splot.splot:main"
