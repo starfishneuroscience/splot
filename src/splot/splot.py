@@ -11,8 +11,8 @@ import serial
 import serial.tools.list_ports
 from PyQt6 import QtCore, QtWidgets, uic
 
-from serial_receiver import SerialReceiver
-from stream_processor import StreamProcessor
+from .serial_receiver import SerialReceiver
+from .stream_processor import StreamProcessor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s")
 logger = logging.getLogger(__name__)
