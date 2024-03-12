@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import importlib
+import importlib.resources
 import logging
 import serial
 import signal
