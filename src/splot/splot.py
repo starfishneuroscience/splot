@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import importlib
 import logging
 import serial
 import signal
@@ -21,7 +22,8 @@ logger = logging.getLogger(__name__)
 class Ui(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        uic.loadUi("splot.ui", self)
+        ui_file_path = importlib.resources.files('splot')  / "splot.ui"
+        uic.loadUi(ui_file_path, self)
         self.show()
 
         # continually check serial port availability 3x/second
@@ -174,6 +176,7 @@ class Ui(QtWidgets.QMainWindow):
 
 
 def main():
+    print(f"{__name__=}")
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     app = QtWidgets.QApplication(sys.argv)
     window = Ui()
