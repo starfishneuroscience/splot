@@ -176,7 +176,6 @@ class Ui(QtWidgets.QMainWindow):
 
 
 def main():
-    print(f"{__name__=}")
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     app = QtWidgets.QApplication(sys.argv)
     window = Ui()
