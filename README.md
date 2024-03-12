@@ -36,3 +36,5 @@ and then to run it, run `splot` at the command line.
     - add mouseover documentation for dtype_string
     - in binary, message size should be inferred from dtype_string
     - make different config options available on UI when parsing different message types
+ - PR #2:
+    - Restructure as python package to allow easy install. Still works with local editable install (`pip install -e <repo path>`).
