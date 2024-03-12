@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import importlib.resources
 import logging
 import serial
 import signal
@@ -11,8 +12,8 @@ import serial
 import serial.tools.list_ports
 from PyQt6 import QtCore, QtWidgets, uic
 
-from serial_receiver import SerialReceiver
-from stream_processor import StreamProcessor
+from .serial_receiver import SerialReceiver
+from .stream_processor import StreamProcessor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s")
 logger = logging.getLogger(__name__)
@@ -21,7 +22,8 @@ logger = logging.getLogger(__name__)
 class Ui(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        uic.loadUi("splot.ui", self)
+        ui_file_path = importlib.resources.files('splot')  / "splot.ui"
+        uic.loadUi(ui_file_path, self)
         self.show()
 
         # continually check serial port availability 3x/second
@@ -172,9 +174,13 @@ class Ui(QtWidgets.QMainWindow):
         self.numberOfStreamsSpinBox.setVisible(not binary)
         self.messageDelimiterLineEdit.setText("0" if binary else "\\n")
 
-if __name__ == "__main__":
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
 
+def main():
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     app = QtWidgets.QApplication(sys.argv)
     window = Ui()
     app.exec()
+
+
+if __name__ == "__main__":
+    main()
