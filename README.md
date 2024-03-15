@@ -10,6 +10,10 @@ Data is often sent in different formats, so splot is intended to have the flexib
 ## Screenshots (what does it look like?)
 ![](assets/splot_screen_capture.mov)
 
+https://github.com/starfishneuroscience/splot/assets/108433203/9857bdfe-8498-4a81-b8ae-158a20df10da
+
+
+
 ## How do I install it?
 ```sh
 pip install "git+https://github.com/starfishneuroscience/splot.git"
