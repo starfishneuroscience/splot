@@ -350,7 +350,7 @@
                  <item row="1" column="0">
                   <widget class="QLabel" name="messageDelimiterLabel">
                    <property name="text">
-                    <string>Separator byte</string>
+                    <string>Separator</string>
                    </property>
                   </widget>
                  </item>

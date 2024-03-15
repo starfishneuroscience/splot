@@ -9,8 +9,8 @@ while True:
     conn, address = server_socket.accept()  # accept new connection
     counter = 0
     while True:
-        rand = numpy.random.rand(3)
-        data = f"{counter}, {rand[0]}, {rand[1]}, {rand[2]}\r\n"
+        rand = numpy.random.rand() - 0.5
+        data = f"{counter}, {rand}, {rand:.5e}units {round(rand*1000)} junk\r\n"
 
         try:
             conn.send(data.encode())
