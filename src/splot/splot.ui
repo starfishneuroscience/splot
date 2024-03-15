@@ -25,7 +25,7 @@
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_3">
        <item>
-        <widget class="QFrame" name="formFrame_3">
+        <widget class="QFrame" name="sourceFrame_2">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -46,7 +46,7 @@
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
           </property>
           <item row="0" column="0">
-           <widget class="QLabel" name="label_5">
+           <widget class="QLabel" name="sourceLabel">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
               <horstretch>0</horstretch>
@@ -112,7 +112,7 @@
         </widget>
        </item>
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_6">
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
          <item>
           <widget class="QFrame" name="leftFrame">
            <property name="sizePolicy">
@@ -161,6 +161,9 @@
                <enum>QFrame::Raised</enum>
               </property>
               <layout class="QFormLayout" name="serialParametersFormLayout">
+               <property name="fieldGrowthPolicy">
+                <enum>QFormLayout::ExpandingFieldsGrow</enum>
+               </property>
                <property name="verticalSpacing">
                 <number>5</number>
                </property>
@@ -185,6 +188,12 @@
                </item>
                <item row="0" column="1">
                 <widget class="QComboBox" name="serialBaudRateComboBox">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
                  <property name="editable">
                   <bool>true</bool>
                  </property>
@@ -198,7 +207,14 @@
                 </widget>
                </item>
                <item row="1" column="1">
-                <widget class="QComboBox" name="serialParityComboBox"/>
+                <widget class="QComboBox" name="serialParityComboBox">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                </widget>
                </item>
                <item row="2" column="0">
                 <widget class="QLabel" name="serialStopBitsLabel">
@@ -208,7 +224,14 @@
                 </widget>
                </item>
                <item row="2" column="1">
-                <widget class="QComboBox" name="serialStopBitsComboBox"/>
+                <widget class="QComboBox" name="serialStopBitsComboBox">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                </widget>
                </item>
                <item row="3" column="0">
                 <widget class="QLabel" name="serialReadChunkSizeLabel">
@@ -306,6 +329,12 @@
                  </item>
                  <item row="0" column="1">
                   <widget class="QComboBox" name="dataFormatComboBox">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
                    <item>
                     <property name="text">
                      <string>binary</string>
@@ -398,6 +427,9 @@
                </item>
                <item>
                 <layout class="QFormLayout" name="formLayout_4">
+                 <property name="fieldGrowthPolicy">
+                  <enum>QFormLayout::ExpandingFieldsGrow</enum>
+                 </property>
                  <item row="0" column="0">
                   <widget class="QLabel" name="plotLengthLabel">
                    <property name="text">
