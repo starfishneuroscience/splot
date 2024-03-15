@@ -13,11 +13,11 @@ while True:
         data = f"{counter}, {rand}, {rand:.5e}units {round(rand*1000)} junk\r\n"
 
         try:
-            conn.send(data.encode())
+            conn.send(data.encode('ascii'))
         except Exception as e:
             print(e)
             break
 
         print(f"Sent: {data}")
         counter += 1
-        time.sleep(.1)
+        time.sleep(.0001)
