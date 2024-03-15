@@ -10,7 +10,7 @@ import numpy as np
 import pyqtgraph as pg
 import serial
 import serial.tools.list_ports
-from PyQt6 import QtCore, QtWidgets, QtGui, uic
+from PyQt6 import QtCore, QtWidgets, uic
 
 
 from .serial_receiver import SerialReceiver
