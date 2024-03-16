@@ -71,13 +71,11 @@ class StreamProcessor:
     def process_new_data(self):
         """This slot should be connected to serial_receiver's data_received signal."""
         # get new data
-
         new_data = self.serial_receiver.get_new_data(self.read_ptr)
         num_bytes_read = len(new_data)
 
         if not self.binary:
             new_data = new_data.tobytes().decode("ascii")
-
             if self.message_delimiter not in new_data:
                 return
             messages = new_data.split(self.message_delimiter)
