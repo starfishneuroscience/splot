@@ -7,6 +7,11 @@ Data is often sent in different formats, so splot is intended to have the flexib
 1. *binary encoded messages* with a single-byte delimiter between messages. The user can specify which bytes of the message belong to which data series. For example, if every message consists of a 0 header/delimiter byte, a 2-byte unsigned integer, a 4-byte float, an 8-byte double, and a signed 1-byte integer, one could specify this as "u1,u2,f4,f8,i1" (see https://numpy.org/doc/stable/user/basics.rec.html#structured-datatypes for details and more examples). 
 2. *ascii encoded messages*, with a single-byte delimiter between messages (typically a newline, '\n'). The user specifies the number of data series expected in each message `n`, and the first `n` numbers in each message will be plotted. If less than `n` values are present, the remaining values are filled with NaNs.
 
+## Screenshots (what does it look like?)
+https://github.com/starfishneuroscience/splot/assets/108433203/9857bdfe-8498-4a81-b8ae-158a20df10da
+
+
+
 ## How do I install it?
 ```sh
 pip install "git+https://github.com/starfishneuroscience/splot.git"
@@ -23,7 +28,7 @@ and then to run it, run `splot` at the command line.
     - add checksum checking for each message, and an indicator for how often bad data is seen
 - Message parsing:
     - allow single messages to contain multiple values for a single series (e.g., message consists of 3 consecutive readings from one sensor, followed by 1 reading from another lower-speed sensor).
-    - allow multi-byte message-delimiters
+    - allow multi-byte message-delimiters for binary (already supported for ascii)
     - handle uart with different frame sizes (e.g., 9- or 10-bit frames)
     - handle other serialization formats, e.g. JSON or protobuf
 
@@ -36,3 +41,7 @@ and then to run it, run `splot` at the command line.
     - make different config options available on UI when parsing different message types
  - PR #2:
     - Restructure as python package to allow easy install. Still works with local editable install (`pip install -e <repo path>`).
+ - PR #3:
+    - Fix some bad bugs in ASCII parsing (would re-read same buffer if no new data were present! wouldnt parse floats correctly!)
+    - UI cleanup: alignment/sizing, make plot colors match system theme.
+    - Add example TCP server for testing ascii parsing.

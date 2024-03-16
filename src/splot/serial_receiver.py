@@ -73,7 +73,9 @@ class SerialReceiver(QtCore.QThread):
     def get_new_data(self, read_ptr):
         """Return ringbuffer, starting at read_ptr and ending at write_ptr, unrolled"""
         self.mutex.lock()
-        if self.write_ptr > read_ptr:
+        if self.write_ptr == read_ptr:
+            buffer = np.empty(0)
+        elif self.write_ptr > read_ptr:
             buffer = self.ring_buffer[read_ptr : self.write_ptr].copy()
         else:
             buffer = np.concatenate((self.ring_buffer[read_ptr:], self.ring_buffer[: self.write_ptr]))

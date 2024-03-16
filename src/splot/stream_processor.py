@@ -46,6 +46,11 @@ class StreamProcessor:
 
         self.plot_buffer = np.full((plot_buffer_length, num_streams), np.nan, dtype=float)
 
+        # compile regex to parse numbers out of arbitrary strings
+        numeric_const_pattern = r"[-+]? (?: (?: \d* \. \d+ ) | (?: \d+ \.? ) )(?: [Ee] [+-]? \d+ ) ?"
+        self.numeric_rx = re.compile(numeric_const_pattern, re.VERBOSE)
+
+
     def change_plot_buffer_length(self, size):
         self.plot_buffer = np.full((size, self.plot_buffer.shape[1]), np.nan, dtype=float)
         self.write_ptr = 0
@@ -81,7 +86,9 @@ class StreamProcessor:
             messages = messages[:-1]
 
             for message in messages:
-                nums = re.findall(r"\b\d+", message)
+                if message == '':
+                    continue
+                nums = self.numeric_rx.findall(message)
                 nums = np.array(nums, dtype=float)
                 logger.debug(f"parsed {message=} to {nums=}")
                 if len(nums) >= self.plot_buffer.shape[1]:

@@ -12,6 +12,7 @@ import serial
 import serial.tools.list_ports
 from PyQt6 import QtCore, QtWidgets, uic
 
+
 from .serial_receiver import SerialReceiver
 from .stream_processor import StreamProcessor
 
@@ -40,6 +41,13 @@ class Ui(QtWidgets.QMainWindow):
         self.plot_timer = QtCore.QTimer()
         self.plot_timer.timeout.connect(self.update_stream_plots)
         self.plot_timer.start(50)
+
+        # set plot background and color based on system theme
+        palette = QtWidgets.QApplication.palette()
+        bgcolor = palette.color(self.serialBaudRateComboBox.backgroundRole())
+        fgcolor = palette.color(self.serialBaudRateComboBox.foregroundRole())
+        pg.setConfigOption('background', bgcolor.name())
+        pg.setConfigOption('foreground', fgcolor.name())
 
         self.plots = []
         self.plot_layout = pg.GraphicsLayoutWidget()
