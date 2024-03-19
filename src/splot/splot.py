@@ -9,8 +9,7 @@ import numpy as np
 import pyqtgraph as pg
 import serial
 import serial.tools.list_ports
-from PyQt6 import QtCore, QtWidgets, uic
-from PyQt6.QtGui import QPalette
+from PyQt6 import QtCore, QtWidgets, QtGui, uic
 
 from .serial_receiver import SerialReceiver
 from .stream_processor import StreamProcessor
@@ -24,7 +23,8 @@ class Ui(QtWidgets.QMainWindow):
         super().__init__()
         ui_file_path = importlib.resources.files("splot") / "splot.ui"
         uic.loadUi(ui_file_path, self)
-        self.show()
+
+        self.settings = QtCore.QSettings("utilities", "splot")
 
         # continually check serial port availability 3x/second
         self.timer = QtCore.QTimer()
@@ -43,31 +43,55 @@ class Ui(QtWidgets.QMainWindow):
 
         # set plot background and color based on system theme
         palette = QtWidgets.QApplication.palette()
-        bgcolor = palette.color(QPalette.ColorRole.Window)
-        fgcolor = palette.color(QPalette.ColorRole.WindowText)
-        self.plot_series_color = palette.color(QPalette.ColorRole.WindowText)
+        bgcolor = palette.color(QtGui.QPalette.ColorRole.Window)
+        fgcolor = palette.color(QtGui.QPalette.ColorRole.WindowText)
+        self.plot_series_color = palette.color(QtGui.QPalette.ColorRole.WindowText)
         pg.setConfigOption("background", bgcolor.name())
         pg.setConfigOption("foreground", fgcolor.name())
 
         self.plots = []
         self.plot_cursor_lines = []
         self.plot_layout = pg.GraphicsLayoutWidget()
+        self.plotVBoxLayout.addWidget(self.plot_layout)
         # suppress constant debug messages on mac associated with trackpad
         self.plot_layout.viewport().setAttribute(QtCore.Qt.WidgetAttribute.WA_AcceptTouchEvents, False)
-        self.plotVBoxLayout.addWidget(self.plot_layout)
 
-        self.serialBaudRateComboBox.addItems([str(x) for x in serial.serialutil.SerialBase.BAUDRATES])
-        self.serialStopBitsComboBox.addItems([str(x) for x in serial.serialutil.SerialBase.STOPBITS])
-        self.serialParityComboBox.addItems([str(x) for x in serial.serialutil.SerialBase.PARITIES])
+        self.populate_serial_options()
 
-        self.numberOfStreamsLabel.setVisible(False)
-        self.numberOfStreamsSpinBox.setVisible(False)
+        self.load_stored_settings()
 
-    @QtCore.pyqtSlot(int)
-    def on_serialPortComboBox_currentIndexChanged(self, index):
-        logger.info(f"you changed the serial port to index {index}!")
-        self.disconnect_from_serial()
-        self.connect_to_serial()
+    def populate_serial_options(self):
+        option_map = {
+            self.serialBaudRateComboBox: serial.serialutil.SerialBase.BAUDRATES,
+            self.serialStopBitsComboBox: serial.serialutil.SerialBase.STOPBITS,
+            self.serialParityComboBox: serial.serialutil.SerialBase.PARITIES,
+        }
+        for combo_box, values in option_map.items():
+            combo_box.blockSignals(True)
+            combo_box.addItems([str(x) for x in values])
+            combo_box.blockSignals(False)
+
+    def load_stored_settings(self):
+        settings_map = {
+            "ui/serialBaudRate": None,
+            "ui/serialParityIndex": self.serialParityComboBox.setCurrentIndex,
+            "ui/serialStopBitsIndex": self.serialStopBitsComboBox.setCurrentIndex,
+            "ui/serialReadChunkSize": self.serialReadChunkSizeSpinBox.setValue,
+            "ui/serialBufferSize": self.serialBufferSizeSpinBox.setValue,
+            "ui/numberOfStreams": self.numberOfStreamsSpinBox.setValue,
+            "ui/dataFormatIndex": self.dataFormatComboBox.setCurrentIndex,
+            "ui/messageDelimiter": self.messageDelimiterLineEdit.setText,
+            "ui/binaryDtypeString": self.binaryDtypeStringLineEdit.setText,
+            "ui/plotLength": self.plotLengthSpinBox.setValue,
+        }
+        for key, set_function in settings_map.items():
+            value = self.settings.value(key)
+            if value is not None and set_function is not None:
+                print(f"Setting {key} to {value}")
+                set_function(value)
+
+        # update UI widget visibility as needed:
+        self.on_dataFormatComboBox_currentIndexChanged(self.dataFormatComboBox.currentIndex())
 
     def connect_to_serial(self):
         port = self.serialPortComboBox.currentData()
@@ -176,18 +200,54 @@ class Ui(QtWidgets.QMainWindow):
         """This function is called when the main window is closed"""
         self.disconnect_from_serial()
 
-    def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
-        if self.stream_processor:
-            self.stream_processor.change_plot_buffer_length(plot_buffer_length)
+    @QtCore.pyqtSlot(int)
+    def on_serialPortComboBox_currentIndexChanged(self, index):
+        logger.info(f"you changed the serial port to index {index}!")
+        self.disconnect_from_serial()
+        self.connect_to_serial()
+
+    @QtCore.pyqtSlot(int)
+    def on_serialParityComboBox_currentIndexChanged(self, index):
+        self.settings.setValue("ui/serialParityIndex", index)
+
+    @QtCore.pyqtSlot(int)
+    def on_serialStopBitsComboBox_currentIndexChanged(self, index):
+        self.settings.setValue("ui/serialStopBitsIndex", index)
+
+    @QtCore.pyqtSlot(int)
+    def on_serialReadChunkSizeSpinBox_valueChanged(self, value):
+        self.settings.setValue("ui/serialReadChunkSize", value)
+
+    @QtCore.pyqtSlot(int)
+    def on_serialBufferSizeSpinBox_valueChanged(self, value):
+        self.settings.setValue("ui/serialBufferSize", value)
 
     @QtCore.pyqtSlot(int)
     def on_dataFormatComboBox_currentIndexChanged(self, index):
+        self.settings.setValue("ui/dataFormatIndex", index)
         binary = index == 0
         self.binaryDtypeStringLineEdit.setVisible(binary)
         self.binaryDtypeStringLabel.setVisible(binary)
         self.numberOfStreamsLabel.setVisible(not binary)
         self.numberOfStreamsSpinBox.setVisible(not binary)
-        self.messageDelimiterLineEdit.setText("0" if binary else "\\n")
+
+    @QtCore.pyqtSlot(str)
+    def on_messageDelimiterLineEdit_textEdited(self, value):
+        self.settings.setValue("ui/messageDelimiter", value)
+
+    @QtCore.pyqtSlot(str)
+    def on_binaryDtypeStringLineEdit_textEdited(self, value):
+        self.settings.setValue("ui/binaryDtypeString", value)
+
+    @QtCore.pyqtSlot(int)
+    def on_numberOfStreamsSpinBox_valueChanged(self, value):
+        self.settings.setValue("ui/numberOfStreams", value)
+
+    @QtCore.pyqtSlot(int)
+    def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
+        self.settings.setValue("ui/plotLength", plot_buffer_length)
+        if self.stream_processor is not None:
+            self.stream_processor.change_plot_buffer_length(plot_buffer_length)
 
     @QtCore.pyqtSlot(bool)
     def on_pausePushButton_clicked(self, checked):

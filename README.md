@@ -31,14 +31,15 @@ splot has been tested with 12M baud serial connections with net data rates excee
 - Development:
     - Implementing a good test infrastructure for automated testing (possibly in CI)
 - UI:
-    - Use QSettings to allow user to save state when re-opening application
     - switch between stacked plots and single plot with overlaid series
     - unique colors for each plot
     - allow disabling of certain streams for plotting
+- Data processing:
     - filters and averaging of signals
-- Error detection:
-    - add option for setting a 'counter' field and create a 'data-dropped flag' or online estimator for dropped messages
-    - add checksum checking for each message, and an indicator for how often bad data is seen
+    - Oscilloscope mode / triggered plotting
+    - Error detection:
+        - add option for setting a 'counter' field and create a 'data-dropped flag' or online estimator for dropped messages
+        - add checksum checking for each message, and an indicator for how often bad data is seen
 - Message parsing:
     - allow single messages to contain multiple values for a single series (e.g., message consists of 3 consecutive readings from one sensor, followed by 1 reading from another lower-speed sensor).
     - allow multi-byte message-delimiters for binary (already supported for ascii)
@@ -72,3 +73,4 @@ There are a number of similar projects out there from which splot takes inspirat
     - Pause didn't pause processing, just updating the plots. Pause now inhibits stream processor, so plot buffers dont update.
     - Show vertical bar for current plot position
     - Color scheme was bad for 'light' system theme. Now correctly pulls theme colors and uses them.
+    - Add persistent settings when closing and re-opening app via QSettings.
