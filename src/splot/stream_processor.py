@@ -26,6 +26,7 @@ class StreamProcessor:
         # future parameters: long_or_wide,
         super().__init__()
         self.running = False
+        self.paused = False
         self.serial_receiver = serial_receiver
 
         self.binary = binary
@@ -71,6 +72,9 @@ class StreamProcessor:
     def process_new_data(self):
         """This slot should be connected to serial_receiver's data_received signal."""
         # get new data
+        if self.paused:
+            return
+
         new_data = self.serial_receiver.get_new_data(self.read_ptr)
         num_bytes_read = len(new_data)
 

@@ -11,7 +11,7 @@ import pyqtgraph as pg
 import serial
 import serial.tools.list_ports
 from PyQt6 import QtCore, QtWidgets, uic
-
+from PyQt6.QtGui import QPalette
 
 from .serial_receiver import SerialReceiver
 from .stream_processor import StreamProcessor
@@ -37,19 +37,21 @@ class Ui(QtWidgets.QMainWindow):
 
         self.socket = None  # have to keep this around to properly close it
 
-        # timer to update plots at 20 Hz
+        # timer to update plots at 30 Hz
         self.plot_timer = QtCore.QTimer()
         self.plot_timer.timeout.connect(self.update_stream_plots)
-        self.plot_timer.start(50)
+        self.plot_timer.start(33)
 
         # set plot background and color based on system theme
         palette = QtWidgets.QApplication.palette()
-        bgcolor = palette.color(self.serialBaudRateComboBox.backgroundRole())
-        fgcolor = palette.color(self.serialBaudRateComboBox.foregroundRole())
+        bgcolor = palette.color(QPalette.ColorRole.Window)
+        fgcolor = palette.color(QPalette.ColorRole.WindowText)
+        self.plot_series_color = palette.color(QPalette.ColorRole.WindowText)
         pg.setConfigOption('background', bgcolor.name())
         pg.setConfigOption('foreground', fgcolor.name())
 
         self.plots = []
+        self.plot_cursor_lines = []
         self.plot_layout = pg.GraphicsLayoutWidget()
         # suppress constant debug messages on mac associated with trackpad
         self.plot_layout.viewport().setAttribute(QtCore.Qt.WidgetAttribute.WA_AcceptTouchEvents, False)
@@ -154,16 +156,22 @@ class Ui(QtWidgets.QMainWindow):
         self.plots = []
         self.plot_layout.clear()
         for i in range(num_streams):
-            plot = self.plot_layout.addPlot(x=[], y=[], row=i, col=0)
+            plot = self.plot_layout.addPlot(x=[], y=[], row=i, col=0, pen=self.plot_series_color)
+            line = pg.InfiniteLine(pos=0, angle=90, pen='red')
+            plot.addItem(line)
             self.plots.append(plot)
+            self.plot_cursor_lines.append(line)
             if i > 0:
                 plot.setXLink(self.plots[0])
 
     def update_stream_plots(self):
-        if not self.pausePushButton.isChecked():
-            for i, plot in enumerate(self.plots):
-                (series,) = plot.listDataItems()
-                series.setData(self.stream_processor.plot_buffer[:, i])
+        for i, plot in enumerate(self.plots):
+            (series, ) = plot.listDataItems()
+            j = self.stream_processor.write_ptr
+            self.plot_cursor_lines[i].setValue(j)
+            dat = self.stream_processor.plot_buffer[:, i].copy()
+            dat[j] = np.nan # force plotting break
+            series.setData(dat)
 
     def closeEvent(self, event):
         """This function is called when the main window is closed"""
@@ -182,6 +190,10 @@ class Ui(QtWidgets.QMainWindow):
         self.numberOfStreamsSpinBox.setVisible(not binary)
         self.messageDelimiterLineEdit.setText("0" if binary else "\\n")
 
+    @QtCore.pyqtSlot(bool)
+    def on_pausePushButton_clicked(self, checked):
+        if self.stream_processor is not None:
+            self.stream_processor.paused = checked
 
 def main():
     signal.signal(signal.SIGINT, signal.SIG_DFL)
