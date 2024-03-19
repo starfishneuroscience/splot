@@ -25,6 +25,7 @@ class Ui(QtWidgets.QMainWindow):
         uic.loadUi(ui_file_path, self)
 
         self.settings = QtCore.QSettings("utilities", "splot")
+        logger.info(f"Settings obtained from: {self.settings.fileName()}")
 
         # continually check serial port availability 3x/second
         self.timer = QtCore.QTimer()
@@ -87,7 +88,6 @@ class Ui(QtWidgets.QMainWindow):
         for key, set_function in settings_map.items():
             value = self.settings.value(key)
             if value is not None and set_function is not None:
-                print(f"Setting {key} to {value}")
                 set_function(value)
 
         # update UI widget visibility as needed:
