@@ -4,7 +4,7 @@
 splot is intended to be a performant, swiss army knife for plotting and assessing data being passed over a serial connection. Currently, it supports data being sent via a computer serial port (e.g. `COM1` on windows, or `/dev/ttyusb0` on mac or linux), or over a network via a tcp/udp socket.
 
 Data is often sent in different formats, so splot is intended to have the flexibility to parse various message encodings. Currently it supports:
-1. *binary encoded messages* with a single-byte delimiter between messages. The user can specify which bytes of the message belong to which data series. For example, if every message consists of a 0 header/delimiter byte, a 2-byte unsigned integer, a 4-byte float, an 8-byte double, and a signed 1-byte integer, one could specify this as "u1,u2,f4,f8,i1" (see https://numpy.org/doc/stable/user/basics.rec.html#structured-datatypes for details and more examples). 
+1. *binary encoded messages* with a single-byte delimiter between messages. The user can specify which bytes of the message belong to which data series. For example, if every message consists of a 0 header/delimiter byte, a 2-byte unsigned integer, a 4-byte float, an 8-byte double, and a signed 1-byte integer, one could specify this as "u1,u2,f4,f8,i1" (see https://numpy.org/doc/stable/user/basics.rec.html#structured-datatypes for details and more examples).
 2. *ascii encoded messages*, with a single-byte delimiter between messages (typically a newline, '\n'). The user specifies the number of data series expected in each message `n`, and the first `n` numbers in each message will be plotted. If less than `n` values are present, the remaining values are filled with NaNs.
 
 ## Screenshots (what does it look like?)
@@ -72,4 +72,3 @@ There are a number of similar projects out there from which splot takes inspirat
     - Pause didn't pause processing, just updating the plots. Pause now inhibits stream processor, so plot buffers dont update.
     - Show vertical bar for current plot position
     - Color scheme was bad for 'light' system theme. Now correctly pulls theme colors and uses them.
-

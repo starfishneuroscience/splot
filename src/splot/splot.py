@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import importlib.resources
 import logging
-import serial
 import signal
 import socket
 import sys
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 class Ui(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        ui_file_path = importlib.resources.files('splot')  / "splot.ui"
+        ui_file_path = importlib.resources.files("splot") / "splot.ui"
         uic.loadUi(ui_file_path, self)
         self.show()
 
@@ -47,8 +46,8 @@ class Ui(QtWidgets.QMainWindow):
         bgcolor = palette.color(QPalette.ColorRole.Window)
         fgcolor = palette.color(QPalette.ColorRole.WindowText)
         self.plot_series_color = palette.color(QPalette.ColorRole.WindowText)
-        pg.setConfigOption('background', bgcolor.name())
-        pg.setConfigOption('foreground', fgcolor.name())
+        pg.setConfigOption("background", bgcolor.name())
+        pg.setConfigOption("foreground", fgcolor.name())
 
         self.plots = []
         self.plot_cursor_lines = []
@@ -157,7 +156,7 @@ class Ui(QtWidgets.QMainWindow):
         self.plot_layout.clear()
         for i in range(num_streams):
             plot = self.plot_layout.addPlot(x=[], y=[], row=i, col=0, pen=self.plot_series_color)
-            line = pg.InfiniteLine(pos=0, angle=90, pen='red')
+            line = pg.InfiniteLine(pos=0, angle=90, pen="red")
             plot.addItem(line)
             self.plots.append(plot)
             self.plot_cursor_lines.append(line)
@@ -166,11 +165,11 @@ class Ui(QtWidgets.QMainWindow):
 
     def update_stream_plots(self):
         for i, plot in enumerate(self.plots):
-            (series, ) = plot.listDataItems()
+            (series,) = plot.listDataItems()
             j = self.stream_processor.write_ptr
             self.plot_cursor_lines[i].setValue(j)
             dat = self.stream_processor.plot_buffer[:, i].copy()
-            dat[j] = np.nan # force plotting break
+            dat[j] = np.nan  # force plotting break
             series.setData(dat)
 
     def closeEvent(self, event):
@@ -183,7 +182,7 @@ class Ui(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(int)
     def on_dataFormatComboBox_currentIndexChanged(self, index):
-        binary = (index == 0)
+        binary = index == 0
         self.binaryDtypeStringLineEdit.setVisible(binary)
         self.binaryDtypeStringLabel.setVisible(binary)
         self.numberOfStreamsLabel.setVisible(not binary)
@@ -195,10 +194,12 @@ class Ui(QtWidgets.QMainWindow):
         if self.stream_processor is not None:
             self.stream_processor.paused = checked
 
+
 def main():
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     app = QtWidgets.QApplication(sys.argv)
     window = Ui()
+    window.show()
     app.exec()
 
 

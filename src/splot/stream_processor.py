@@ -51,7 +51,6 @@ class StreamProcessor:
         numeric_const_pattern = r"[-+]? (?: (?: \d* \. \d+ ) | (?: \d+ \.? ) )(?: [Ee] [+-]? \d+ ) ?"
         self.numeric_rx = re.compile(numeric_const_pattern, re.VERBOSE)
 
-
     def change_plot_buffer_length(self, size):
         self.plot_buffer = np.full((size, self.plot_buffer.shape[1]), np.nan, dtype=float)
         self.write_ptr = 0
@@ -90,7 +89,7 @@ class StreamProcessor:
             messages = messages[:-1]
 
             for message in messages:
-                if message == '':
+                if message == "":
                     continue
                 nums = self.numeric_rx.findall(message)
                 nums = np.array(nums, dtype=float)
@@ -128,7 +127,8 @@ class StreamProcessor:
             if any(message_lengths != expected_length):
                 bad_message_lengths = message_lengths[message_lengths != expected_length]
                 logger.error(
-                    f"{len(bad_message_lengths)} bad message lengths detected! {bad_message_lengths}. Dropping those messages."
+                    f"{len(bad_message_lengths)} bad message lengths detected! {bad_message_lengths}. "
+                    "Dropping those messages."
                 )
                 messages = [m for m in messages if len(m) == expected_length]
 
