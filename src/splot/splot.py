@@ -177,6 +177,7 @@ class Ui(QtWidgets.QMainWindow):
     def create_plot_series(self, num_streams):
         # todo: clear all plots
         self.plots = []
+        self.plot_cursor_lines = []
         self.plot_layout.clear()
         for i in range(num_streams):
             plot = self.plot_layout.addPlot(x=[], y=[], row=i, col=0, pen=self.plot_series_color)
