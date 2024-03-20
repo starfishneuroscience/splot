@@ -218,6 +218,9 @@
                  <property name="editable">
                   <bool>true</bool>
                  </property>
+                 <property name="insertPolicy">
+                  <enum>QComboBox::NoInsert</enum>
+                 </property>
                 </widget>
                </item>
                <item row="1" column="0">
@@ -316,7 +319,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QFrame" name="">
+             <widget class="QFrame" name="frame">
               <property name="frameShape">
                <enum>QFrame::StyledPanel</enum>
               </property>
@@ -440,7 +443,7 @@
              </spacer>
             </item>
             <item>
-             <widget class="QFrame" name="">
+             <widget class="QFrame" name="frame">
               <property name="frameShape">
                <enum>QFrame::StyledPanel</enum>
               </property>
