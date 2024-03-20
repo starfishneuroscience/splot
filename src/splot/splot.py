@@ -74,7 +74,7 @@ class Ui(QtWidgets.QMainWindow):
 
     def load_stored_settings(self):
         settings_map = {
-            "ui/serialBaudRate": None,
+            "ui/serialBaudRate": self.serialBaudRateComboBox.setCurrentText,
             "ui/serialParityIndex": self.serialParityComboBox.setCurrentIndex,
             "ui/serialStopBitsIndex": self.serialStopBitsComboBox.setCurrentIndex,
             "ui/serialReadChunkSize": self.serialReadChunkSizeSpinBox.setValue,
@@ -175,7 +175,6 @@ class Ui(QtWidgets.QMainWindow):
                 self.serialPortComboBox.removeItem(self.serialPortComboBox.findData(port))
 
     def create_plot_series(self, num_streams):
-        # todo: clear all plots
         self.plots = []
         self.plot_cursor_lines = []
         self.plot_layout.clear()
@@ -206,6 +205,10 @@ class Ui(QtWidgets.QMainWindow):
         logger.info(f"you changed the serial port to index {index}!")
         self.disconnect_from_serial()
         self.connect_to_serial()
+
+    @QtCore.pyqtSlot(str)
+    def on_serialBaudRateComboBox_currentTextChanged(self, value):
+        self.settings.setValue("ui/serialBaudRate", value)
 
     @QtCore.pyqtSlot(int)
     def on_serialParityComboBox_currentIndexChanged(self, index):
