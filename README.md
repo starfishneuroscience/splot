@@ -16,6 +16,9 @@ pip install "git+https://github.com/starfishneuroscience/splot.git"
 ```
 and then to run it, run `splot` at the command line.
 
+## License
+See the `LICENSE` file.
+
 ## Performance
 splot has been tested with 12M baud serial connections with net data rates exceeding 1 MB/sec (66% utilization). Over a TCP connection, splot can smoothly parse and plot 1.4 MB/sec of ascii data on a Macbook pro (M1).
 
