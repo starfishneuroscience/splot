@@ -8,7 +8,7 @@ Data is often sent in different formats, so splot is intended to have the flexib
 2. *ascii encoded messages*, with a single-byte delimiter between messages (typically a newline, '\n'). The user specifies the number of data series expected in each message `n`, and the first `n` numbers in each message will be plotted. If less than `n` values are present, the remaining values are filled with NaNs.
 
 ## Screenshots (what does it look like?)
-https://github.com/starfishneuroscience/splot/assets/108433203/9857bdfe-8498-4a81-b8ae-158a20df10da
+https://github.com/starfishneuroscience/splot/assets/108433203/f57e02ae-caa8-45b6-ac78-059420b13914
 
 ## How do I install it?
 ```sh
