@@ -481,6 +481,11 @@
                    <string>Analog</string>
                   </property>
                  </item>
+                 <item>
+                  <property name="text">
+                   <string>Bit mask</string>
+                  </property>
+                 </item>
                 </widget>
                </item>
                <item row="1" column="0">

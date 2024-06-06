@@ -53,6 +53,7 @@ class Ui(QtWidgets.QMainWindow):
 
         self.plots = []
         self.plot_cursor_lines = []
+        self.plot_types = []
         self.plot_layout = pg.GraphicsLayoutWidget()
 
         self.plot_layout.ci.layout.setSpacing(0.0)
@@ -195,6 +196,7 @@ class Ui(QtWidgets.QMainWindow):
             plot.addItem(line)
             self.plots.append(plot)
             self.plot_cursor_lines.append(line)
+            self.plot_types.append(0)  # default to 'analog' (index 0)
             if i > 0:
                 plot.setXLink(self.plots[0])
             if i < num_streams - 1:
@@ -203,23 +205,32 @@ class Ui(QtWidgets.QMainWindow):
         self.seriesSelectorSpinBox.setValue(0)
         self.seriesSelectorSpinBox.setMaximum(num_streams)
 
+    def vector_to_bit_raster(self, dat):
+        nzi = np.where(dat > 0)[0]  # non-zero indices
+        x = []
+        y = []
+        for bit in range(8):
+            ind = np.where(dat[nzi].astype(int) & (1 << bit))[0]
+            x.append(np.repeat(nzi[ind], 2))
+            y.append(np.tile([bit, bit + 1], len(ind)))
+        x = np.concatenate(x)
+        y = np.concatenate(y)
+        return x, y
+
     def update_stream_plots(self):
         for i, plot in enumerate(self.plots):
             series = plot.listDataItems()[0]
             j = self.stream_processor.write_ptr
             self.plot_cursor_lines[i].setValue(j)
             dat = self.stream_processor.plot_buffer[:, i].copy()
-            """
-            is_raster = True
-            if is_raster:
-                dat =
-                x = np.cumsum(abs(np.random.normal(size=10000)))
-                x[1::2] = x[::2]
-                y = np.zeros(len(x))
-                y[1::2] = 1
-            """
-            dat[j] = np.nan  # force plotting break
-            series.setData(dat)
+
+            if self.plot_types[i] == 1:  # raster
+                # convert data to raster (series of line segments)
+                x, y = self.vector_to_bit_raster(dat)
+                series.setData(x, y, connect="pairs")
+            else:
+                dat[j] = np.nan  # force plotting break
+                series.setData(dat)
 
     def closeEvent(self, event):
         """This function is called when the main window is closed"""
@@ -276,11 +287,17 @@ class Ui(QtWidgets.QMainWindow):
     def on_seriesSelectorSpinBox_valueChanged(self, series_index):
         # update the series property boxes appropriately
         self.seriesVisibleCheckBox.setChecked(self.plots[series_index].isVisible())
+        self.seriesPlotTypeComboBox.setCurrentIndex(self.plot_types[series_index])
 
     @QtCore.pyqtSlot(bool)
     def on_seriesVisibleCheckBox_clicked(self, checked):
-        i = self.seriesSelectorSpinBox.value()
-        self.plots[i].setVisible(checked)
+        series_index = self.seriesSelectorSpinBox.value()
+        self.plots[series_index].setVisible(checked)
+
+    @QtCore.pyqtSlot(int)
+    def on_seriesPlotTypeComboBox_currentIndexChanged(self, index):
+        series_index = self.seriesSelectorSpinBox.value()
+        self.plot_types[series_index] = index
 
     @QtCore.pyqtSlot(int)
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
@@ -292,6 +309,10 @@ class Ui(QtWidgets.QMainWindow):
     def on_pausePushButton_clicked(self, checked):
         if self.stream_processor is not None:
             self.stream_processor.paused = checked
+        if checked:
+            self.plot_timer.timeout.disconnect(self.update_stream_plots)
+        else:
+            self.plot_timer.timeout.connect(self.update_stream_plots)
 
 
 def main():

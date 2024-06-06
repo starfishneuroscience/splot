@@ -27,7 +27,7 @@ class StreamProcessor:
         # future parameters: long_or_wide,
         super().__init__()
         self.running = False
-        self.paused = False
+        self.paused = paused
         self.serial_receiver = serial_receiver
 
         self.binary = binary
@@ -51,8 +51,6 @@ class StreamProcessor:
         # compile regex to parse numbers out of arbitrary strings
         numeric_const_pattern = r"[-+]? (?: (?: \d* \. \d+ ) | (?: \d+ \.? ) )(?: [Ee] [+-]? \d+ ) ?"
         self.numeric_rx = re.compile(numeric_const_pattern, re.VERBOSE)
-
-        self.paused = paused
 
     def change_plot_buffer_length(self, size):
         self.plot_buffer = np.full((size, self.plot_buffer.shape[1]), np.nan, dtype=float)
