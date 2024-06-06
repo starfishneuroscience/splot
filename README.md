@@ -35,10 +35,8 @@ splot has been tested with 12M baud serial connections with net data rates excee
     - Implementing a good test infrastructure for automated testing (possibly in CI)
 - UI:
     - switch between stacked plots and single plot with overlaid series
-    - unique colors for each plot
-    - allow disabling of certain streams for plotting
 - Data processing:
-    - filters and averaging of signals
+    - filters and averaging of signals (averaging is actually built into pyqtgraph; right click on a plot!)
     - Oscilloscope mode / triggered plotting
     - Error detection:
         - add option for setting a 'counter' field and create a 'data-dropped flag' or online estimator for dropped messages
@@ -77,3 +75,8 @@ There are a number of similar projects out there from which splot takes inspirat
     - Show vertical bar for current plot position
     - Color scheme was bad for 'light' system theme. Now correctly pulls theme colors and uses them.
     - Add persistent settings when closing and re-opening app via QSettings.
+- PR #5:
+    - Pause now respected when connecting/disconnecting
+    - Unique colors for each plot
+    - Allow disabling of certain streams for plotting
+    - Remove margins between plots and x-axes of all plots except bottom one, so that plots can be bigger

@@ -22,6 +22,7 @@ class StreamProcessor:
         binary: bool,
         binary_dtype_string: str,
         ascii_num_streams: int,
+        paused: bool = False,
     ):
         # future parameters: long_or_wide,
         super().__init__()
@@ -50,6 +51,8 @@ class StreamProcessor:
         # compile regex to parse numbers out of arbitrary strings
         numeric_const_pattern = r"[-+]? (?: (?: \d* \. \d+ ) | (?: \d+ \.? ) )(?: [Ee] [+-]? \d+ ) ?"
         self.numeric_rx = re.compile(numeric_const_pattern, re.VERBOSE)
+
+        self.paused = paused
 
     def change_plot_buffer_length(self, size):
         self.plot_buffer = np.full((size, self.plot_buffer.shape[1]), np.nan, dtype=float)

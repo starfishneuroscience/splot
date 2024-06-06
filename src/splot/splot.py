@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import itertools
 import importlib.resources
 import logging
 import signal
@@ -53,6 +54,10 @@ class Ui(QtWidgets.QMainWindow):
         self.plots = []
         self.plot_cursor_lines = []
         self.plot_layout = pg.GraphicsLayoutWidget()
+
+        self.plot_layout.ci.layout.setSpacing(0.0)
+        self.plot_layout.ci.setContentsMargins(0.0, 0.0, 0.0, 0.0)
+
         self.plotVBoxLayout.addWidget(self.plot_layout)
         # suppress constant debug messages on mac associated with trackpad
         self.plot_layout.viewport().setAttribute(QtCore.Qt.WidgetAttribute.WA_AcceptTouchEvents, False)
@@ -60,6 +65,8 @@ class Ui(QtWidgets.QMainWindow):
         self.populate_serial_options()
 
         self.load_stored_settings()
+
+        self.seriesPropertyFrame.setEnabled(False)
 
     def populate_serial_options(self):
         option_map = {
@@ -133,6 +140,7 @@ class Ui(QtWidgets.QMainWindow):
             binary=(self.dataFormatComboBox.currentText() == "binary"),
             binary_dtype_string=self.binaryDtypeStringLineEdit.text(),
             ascii_num_streams=self.numberOfStreamsSpinBox.value(),
+            paused=self.pausePushButton.isChecked(),
         )
         self.serial_receiver.data_received.connect(self.stream_processor.process_new_data)
         self.serial_receiver.data_rate.connect(self.dataRateBpsValueLabel.setNum)
@@ -140,6 +148,7 @@ class Ui(QtWidgets.QMainWindow):
         self.serial_receiver.start()
 
         self.serialParametersFrame.setEnabled(False)
+        self.seriesPropertyFrame.setEnabled(True)
 
     def disconnect_from_serial(self):
         if self.serial_receiver is not None:
@@ -150,6 +159,7 @@ class Ui(QtWidgets.QMainWindow):
         if self.socket is not None:
             self.socket.close()
         self.serialParametersFrame.setEnabled(True)
+        self.seriesPropertyFrame.setEnabled(False)
 
     def update_serial_ports(self):
         new_ports = serial.tools.list_ports.comports()
@@ -178,21 +188,36 @@ class Ui(QtWidgets.QMainWindow):
         self.plots = []
         self.plot_cursor_lines = []
         self.plot_layout.clear()
+        color_iter = itertools.cycle([self.plot_series_color] + list(range(3, 9)))
         for i in range(num_streams):
-            plot = self.plot_layout.addPlot(x=[], y=[], row=i, col=0, pen=self.plot_series_color)
+            plot = self.plot_layout.addPlot(x=[], y=[], row=i, col=0, pen=next(color_iter))
             line = pg.InfiniteLine(pos=0, angle=90, pen="red")
             plot.addItem(line)
             self.plots.append(plot)
             self.plot_cursor_lines.append(line)
             if i > 0:
                 plot.setXLink(self.plots[0])
+            if i < num_streams - 1:
+                plot.hideAxis("bottom")
+
+        self.seriesSelectorSpinBox.setValue(0)
+        self.seriesSelectorSpinBox.setMaximum(num_streams)
 
     def update_stream_plots(self):
         for i, plot in enumerate(self.plots):
-            (series,) = plot.listDataItems()
+            series = plot.listDataItems()[0]
             j = self.stream_processor.write_ptr
             self.plot_cursor_lines[i].setValue(j)
             dat = self.stream_processor.plot_buffer[:, i].copy()
+            """
+            is_raster = True
+            if is_raster:
+                dat =
+                x = np.cumsum(abs(np.random.normal(size=10000)))
+                x[1::2] = x[::2]
+                y = np.zeros(len(x))
+                y[1::2] = 1
+            """
             dat[j] = np.nan  # force plotting break
             series.setData(dat)
 
@@ -246,6 +271,16 @@ class Ui(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(int)
     def on_numberOfStreamsSpinBox_valueChanged(self, value):
         self.settings.setValue("ui/numberOfStreams", value)
+
+    @QtCore.pyqtSlot(int)
+    def on_seriesSelectorSpinBox_valueChanged(self, series_index):
+        # update the series property boxes appropriately
+        self.seriesVisibleCheckBox.setChecked(self.plots[series_index].isVisible())
+
+    @QtCore.pyqtSlot(bool)
+    def on_seriesVisibleCheckBox_clicked(self, checked):
+        i = self.seriesSelectorSpinBox.value()
+        self.plots[i].setVisible(checked)
 
     @QtCore.pyqtSlot(int)
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
