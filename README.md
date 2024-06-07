@@ -75,7 +75,7 @@ There are a number of similar projects out there from which splot takes inspirat
     - Show vertical bar for current plot position
     - Color scheme was bad for 'light' system theme. Now correctly pulls theme colors and uses them.
     - Add persistent settings when closing and re-opening app via QSettings.
-- PR #5:
+- PR #6:
     - Pause now respected when connecting/disconnecting
     - Unique colors for each plot
     - Allow disabling of certain streams for plotting
