@@ -80,3 +80,4 @@ There are a number of similar projects out there from which splot takes inspirat
     - Unique colors for each plot
     - Allow disabling of certain streams for plotting
     - Remove margins between plots and x-axes of all plots except bottom one, so that plots can be bigger
+    - Allow plotting of data series as rasters (interpreting values as bit-masks)

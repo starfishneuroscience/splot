@@ -209,10 +209,11 @@ class Ui(QtWidgets.QMainWindow):
         nzi = np.where(dat > 0)[0]  # non-zero indices
         x = []
         y = []
-        for bit in range(8):
-            ind = np.where(dat[nzi].astype(int) & (1 << bit))[0]
+        max_bit_index = int(np.log2(max(dat)) + 1)
+        for bit_index in range(max_bit_index):
+            ind = np.where(dat[nzi].astype(int) & (1 << bit_index))[0]
             x.append(np.repeat(nzi[ind], 2))
-            y.append(np.tile([bit, bit + 1], len(ind)))
+            y.append(np.tile([bit_index - 0.5, bit_index + 0.5], len(ind)))
         x = np.concatenate(x)
         y = np.concatenate(y)
         return x, y
