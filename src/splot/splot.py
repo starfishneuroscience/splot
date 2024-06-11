@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import itertools
 import importlib.resources
 import logging
 import signal
@@ -52,7 +53,12 @@ class Ui(QtWidgets.QMainWindow):
 
         self.plots = []
         self.plot_cursor_lines = []
+        self.plot_types = []
         self.plot_layout = pg.GraphicsLayoutWidget()
+
+        self.plot_layout.ci.layout.setSpacing(0.0)
+        self.plot_layout.ci.setContentsMargins(0.0, 0.0, 0.0, 0.0)
+
         self.plotVBoxLayout.addWidget(self.plot_layout)
         # suppress constant debug messages on mac associated with trackpad
         self.plot_layout.viewport().setAttribute(QtCore.Qt.WidgetAttribute.WA_AcceptTouchEvents, False)
@@ -60,6 +66,8 @@ class Ui(QtWidgets.QMainWindow):
         self.populate_serial_options()
 
         self.load_stored_settings()
+
+        self.seriesPropertyFrame.setEnabled(False)
 
     def populate_serial_options(self):
         option_map = {
@@ -133,6 +141,7 @@ class Ui(QtWidgets.QMainWindow):
             binary=(self.dataFormatComboBox.currentText() == "binary"),
             binary_dtype_string=self.binaryDtypeStringLineEdit.text(),
             ascii_num_streams=self.numberOfStreamsSpinBox.value(),
+            paused=self.pausePushButton.isChecked(),
         )
         self.serial_receiver.data_received.connect(self.stream_processor.process_new_data)
         self.serial_receiver.data_rate.connect(self.dataRateBpsValueLabel.setNum)
@@ -140,6 +149,7 @@ class Ui(QtWidgets.QMainWindow):
         self.serial_receiver.start()
 
         self.serialParametersFrame.setEnabled(False)
+        self.seriesPropertyFrame.setEnabled(True)
 
     def disconnect_from_serial(self):
         if self.serial_receiver is not None:
@@ -150,6 +160,7 @@ class Ui(QtWidgets.QMainWindow):
         if self.socket is not None:
             self.socket.close()
         self.serialParametersFrame.setEnabled(True)
+        self.seriesPropertyFrame.setEnabled(False)
 
     def update_serial_ports(self):
         new_ports = serial.tools.list_ports.comports()
@@ -178,23 +189,49 @@ class Ui(QtWidgets.QMainWindow):
         self.plots = []
         self.plot_cursor_lines = []
         self.plot_layout.clear()
+        color_iter = itertools.cycle([self.plot_series_color] + list(range(3, 9)))
         for i in range(num_streams):
-            plot = self.plot_layout.addPlot(x=[], y=[], row=i, col=0, pen=self.plot_series_color)
+            plot = self.plot_layout.addPlot(x=[], y=[], row=i, col=0, pen=next(color_iter))
             line = pg.InfiniteLine(pos=0, angle=90, pen="red")
             plot.addItem(line)
             self.plots.append(plot)
             self.plot_cursor_lines.append(line)
+            self.plot_types.append(0)  # default to 'analog' (index 0)
             if i > 0:
                 plot.setXLink(self.plots[0])
+            if i < num_streams - 1:
+                plot.hideAxis("bottom")
+
+        self.seriesSelectorSpinBox.setValue(0)
+        self.seriesSelectorSpinBox.setMaximum(num_streams)
+
+    def vector_to_bit_raster(self, dat):
+        nzi = np.where(dat > 0)[0]  # non-zero indices
+        x = []
+        y = []
+        max_bit_index = int(np.log2(max(dat)) + 1)
+        for bit_index in range(max_bit_index):
+            ind = np.where(dat[nzi].astype(int) & (1 << bit_index))[0]
+            x.append(np.repeat(nzi[ind], 2))
+            y.append(np.tile([bit_index - 0.5, bit_index + 0.5], len(ind)))
+        x = np.concatenate(x)
+        y = np.concatenate(y)
+        return x, y
 
     def update_stream_plots(self):
         for i, plot in enumerate(self.plots):
-            (series,) = plot.listDataItems()
+            series = plot.listDataItems()[0]
             j = self.stream_processor.write_ptr
             self.plot_cursor_lines[i].setValue(j)
             dat = self.stream_processor.plot_buffer[:, i].copy()
-            dat[j] = np.nan  # force plotting break
-            series.setData(dat)
+
+            if self.plot_types[i] == 1:  # raster
+                # convert data to raster (series of line segments)
+                x, y = self.vector_to_bit_raster(dat)
+                series.setData(x, y, connect="pairs")
+            else:
+                dat[j] = np.nan  # force plotting break
+                series.setData(dat)
 
     def closeEvent(self, event):
         """This function is called when the main window is closed"""
@@ -248,6 +285,22 @@ class Ui(QtWidgets.QMainWindow):
         self.settings.setValue("ui/numberOfStreams", value)
 
     @QtCore.pyqtSlot(int)
+    def on_seriesSelectorSpinBox_valueChanged(self, series_index):
+        # update the series property boxes appropriately
+        self.seriesVisibleCheckBox.setChecked(self.plots[series_index].isVisible())
+        self.seriesPlotTypeComboBox.setCurrentIndex(self.plot_types[series_index])
+
+    @QtCore.pyqtSlot(bool)
+    def on_seriesVisibleCheckBox_clicked(self, checked):
+        series_index = self.seriesSelectorSpinBox.value()
+        self.plots[series_index].setVisible(checked)
+
+    @QtCore.pyqtSlot(int)
+    def on_seriesPlotTypeComboBox_currentIndexChanged(self, index):
+        series_index = self.seriesSelectorSpinBox.value()
+        self.plot_types[series_index] = index
+
+    @QtCore.pyqtSlot(int)
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
         self.settings.setValue("ui/plotLength", plot_buffer_length)
         if self.stream_processor is not None:
@@ -257,6 +310,10 @@ class Ui(QtWidgets.QMainWindow):
     def on_pausePushButton_clicked(self, checked):
         if self.stream_processor is not None:
             self.stream_processor.paused = checked
+        if checked:
+            self.plot_timer.timeout.disconnect(self.update_stream_plots)
+        else:
+            self.plot_timer.timeout.connect(self.update_stream_plots)
 
 
 def main():

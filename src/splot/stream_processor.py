@@ -22,11 +22,12 @@ class StreamProcessor:
         binary: bool,
         binary_dtype_string: str,
         ascii_num_streams: int,
+        paused: bool = False,
     ):
         # future parameters: long_or_wide,
         super().__init__()
         self.running = False
-        self.paused = False
+        self.paused = paused
         self.serial_receiver = serial_receiver
 
         self.binary = binary
