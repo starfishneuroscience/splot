@@ -203,13 +203,16 @@ class Ui(QtWidgets.QMainWindow):
                 plot.hideAxis("bottom")
 
         self.seriesSelectorSpinBox.setValue(0)
-        self.seriesSelectorSpinBox.setMaximum(num_streams)
+        self.seriesSelectorSpinBox.setMaximum(num_streams - 1)
 
     def vector_to_bit_raster(self, dat):
         nzi = np.where(dat > 0)[0]  # non-zero indices
         x = []
         y = []
-        max_bit_index = int(np.log2(max(dat)) + 1)
+        try:
+            max_bit_index = int(np.log2(max(dat)) + 1)
+        except ValueError:
+            max_bit_index = 1
         for bit_index in range(max_bit_index):
             ind = np.where(dat[nzi].astype(int) & (1 << bit_index))[0]
             x.append(np.repeat(nzi[ind], 2))
@@ -294,6 +297,11 @@ class Ui(QtWidgets.QMainWindow):
     def on_seriesVisibleCheckBox_clicked(self, checked):
         series_index = self.seriesSelectorSpinBox.value()
         self.plots[series_index].setVisible(checked)
+
+        visible_plot_indices = [i for i in range(len(self.plots)) if self.plots[i].isVisible()]
+        # make sure the last plot has an x-axis visible and the 2nd-to-last doesn't
+        self.plots[visible_plot_indices[-2]].hideAxis("bottom")
+        self.plots[visible_plot_indices[-1]].showAxis("bottom")
 
     @QtCore.pyqtSlot(int)
     def on_seriesPlotTypeComboBox_currentIndexChanged(self, index):
