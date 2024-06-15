@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import itertools
 import importlib.resources
 import logging
 import signal
@@ -189,9 +188,8 @@ class Ui(QtWidgets.QMainWindow):
         self.plots = []
         self.plot_cursor_lines = []
         self.plot_layout.clear()
-        color_iter = itertools.cycle([self.plot_series_color] + list(range(3, 9)))
         for i in range(num_streams):
-            plot = self.plot_layout.addPlot(x=[], y=[], row=i, col=0, pen=next(color_iter))
+            plot = self.plot_layout.addPlot(x=[], y=[], row=i, col=0, pen=self.plot_series_color)
             line = pg.InfiniteLine(pos=0, angle=90, pen="red")
             plot.addItem(line)
             self.plots.append(plot)
@@ -216,7 +214,11 @@ class Ui(QtWidgets.QMainWindow):
         for bit_index in range(max_bit_index):
             ind = np.where(dat[nzi].astype(int) & (1 << bit_index))[0]
             x.append(np.repeat(nzi[ind], 2))
-            y.append(np.tile([bit_index - 0.5, bit_index + 0.5], len(ind)))
+            y.append(np.tile([bit_index - 0.4, bit_index + 0.4], len(ind)))
+        # add horizontal lines for each bit field
+        x.append(np.tile([0, len(dat)], max_bit_index))
+        y.append(np.concatenate([[i, i] for i in range(max_bit_index)]))
+
         x = np.concatenate(x)
         y = np.concatenate(y)
         return x, y
