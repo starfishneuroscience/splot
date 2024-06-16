@@ -46,7 +46,7 @@ class Ui(QtWidgets.QMainWindow):
         palette = QtWidgets.QApplication.palette()
         bgcolor = palette.color(QtGui.QPalette.ColorRole.Window)
         fgcolor = palette.color(QtGui.QPalette.ColorRole.WindowText)
-        self.plot_series_color = palette.color(QtGui.QPalette.ColorRole.WindowText)
+        self.plot_series_color = fgcolor
         pg.setConfigOption("background", bgcolor.name())
         pg.setConfigOption("foreground", fgcolor.name())
 
@@ -144,11 +144,11 @@ class Ui(QtWidgets.QMainWindow):
         )
         self.serial_receiver.data_received.connect(self.stream_processor.process_new_data)
         self.serial_receiver.data_rate.connect(self.dataRateBpsValueLabel.setNum)
+        self.seriesPropertyFrame.setEnabled(True)
         self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
         self.serial_receiver.start()
 
         self.serialParametersFrame.setEnabled(False)
-        self.seriesPropertyFrame.setEnabled(True)
 
     def disconnect_from_serial(self):
         if self.serial_receiver is not None:
@@ -188,21 +188,32 @@ class Ui(QtWidgets.QMainWindow):
         self.plots = []
         self.plot_cursor_lines = []
         self.plot_layout.clear()
+
+        visible = [self.settings.value(f"ui/seriesVisible[{i}]") for i in range(num_streams)]
+        visible = [True if x is None else x for x in visible]
+        visible_plots = np.where(visible)[0]
+
         for i in range(num_streams):
             plot = self.plot_layout.addPlot(x=[], y=[], row=i, col=0, pen=self.plot_series_color)
             line = pg.InfiniteLine(pos=0, angle=90, pen="red")
             plot.addItem(line)
             plot.setLabel("left", self.settings.value(f"ui/seriesName[{i}]"))
-            self.plots.append(plot)
-            self.plot_cursor_lines.append(line)
-            self.plot_types.append(0)  # default to 'analog' (index 0)
+            plot.setVisible(visible[i])
             if i > 0:
                 plot.setXLink(self.plots[0])
-            if i < num_streams - 1:
+            if i != visible_plots[-1]:
                 plot.hideAxis("bottom")
+            self.plots.append(plot)
+            self.plot_cursor_lines.append(line)
+
+        # default to plot_type = 0 if no QSettings entry exists
+        self.plot_types = [self.settings.value(f"ui/seriesPlotType[{i}]") or 0 for i in range(num_streams)]
 
         self.seriesSelectorSpinBox.setValue(0)
         self.seriesSelectorSpinBox.setMaximum(num_streams - 1)
+
+        # set initial UI elements to correct values
+        self.on_seriesSelectorSpinBox_valueChanged(0)
 
     def vector_to_bit_raster(self, dat):
         nzi = np.where(dat > 0)[0]  # non-zero indices
@@ -306,6 +317,7 @@ class Ui(QtWidgets.QMainWindow):
     def on_seriesVisibleCheckBox_clicked(self, checked):
         series_index = self.seriesSelectorSpinBox.value()
         self.plots[series_index].setVisible(checked)
+        self.settings.setValue(f"ui/seriesVisible[{series_index}]", checked)
 
         visible_plot_indices = [i for i in range(len(self.plots)) if self.plots[i].isVisible()]
         # make sure the last plot has an x-axis visible and the 2nd-to-last doesn't
@@ -316,6 +328,7 @@ class Ui(QtWidgets.QMainWindow):
     def on_seriesPlotTypeComboBox_currentIndexChanged(self, index):
         series_index = self.seriesSelectorSpinBox.value()
         self.plot_types[series_index] = index
+        self.settings.setValue(f"ui/seriesPlotType[{series_index}]", index)
 
     @QtCore.pyqtSlot(int)
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
