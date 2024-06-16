@@ -73,10 +73,10 @@ class StreamProcessor:
 
     def process_new_data(self):
         """This slot should be connected to serial_receiver's data_received signal."""
-        # get new data
         if self.paused:
             return
 
+        # get new data
         new_data = self.serial_receiver.get_new_data(self.read_ptr)
         num_bytes_read = len(new_data)
 
@@ -146,6 +146,12 @@ class StreamProcessor:
             data = rfn.structured_to_unstructured(data)
             data = data[:, 1:]  # drop 1st column, it's the delimiter which is constant by definition
 
+            # if we're saving to file, dump new data to file here
+            # - avro
+            # - straight binary
+            # - csv
+
+            # update ring-buffer that plot UI will use
             n = len(messages)
             if n >= self.plot_buffer.shape[0]:
                 # If data is larger than plot_buffer, just overwrite the whole buffer with the most recent data

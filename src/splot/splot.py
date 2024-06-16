@@ -143,7 +143,7 @@ class Ui(QtWidgets.QMainWindow):
             paused=self.pausePushButton.isChecked(),
         )
         self.serial_receiver.data_received.connect(self.stream_processor.process_new_data)
-        self.serial_receiver.data_rate.connect(self.dataRateBpsValueLabel.setNum)
+        self.serial_receiver.data_rate.connect(lambda x: self.statusBar().showMessage(f"Data rate: {x} bytes/sec"))
         self.seriesPropertyFrame.setEnabled(True)
         self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
         self.serial_receiver.start()
@@ -308,6 +308,7 @@ class Ui(QtWidgets.QMainWindow):
         self.seriesPlotTypeComboBox.setCurrentIndex(self.plot_types[series_index])
         self.seriesNameLineEdit.setText(self.plots[series_index].getAxis("left").labelText)
 
+    @QtCore.pyqtSlot(str)
     def on_seriesNameLineEdit_textChanged(self, text):
         series_index = self.seriesSelectorSpinBox.value()
         self.plots[series_index].setLabel("left", text)
@@ -329,6 +330,11 @@ class Ui(QtWidgets.QMainWindow):
         series_index = self.seriesSelectorSpinBox.value()
         self.plot_types[series_index] = index
         self.settings.setValue(f"ui/seriesPlotType[{series_index}]", index)
+
+    @QtCore.pyqtSlot()
+    def on_setSaveLocationPushButton_clicked(self):
+        directory = QtWidgets.QFileDialog.getExistingDirectory()
+        self.saveLocationLabel.setText("Save to: " + directory)
 
     @QtCore.pyqtSlot(int)
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
