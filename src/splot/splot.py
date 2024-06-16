@@ -192,6 +192,7 @@ class Ui(QtWidgets.QMainWindow):
             plot = self.plot_layout.addPlot(x=[], y=[], row=i, col=0, pen=self.plot_series_color)
             line = pg.InfiniteLine(pos=0, angle=90, pen="red")
             plot.addItem(line)
+            plot.setLabel("left", self.settings.value(f"ui/seriesName[{i}]"))
             self.plots.append(plot)
             self.plot_cursor_lines.append(line)
             self.plot_types.append(0)  # default to 'analog' (index 0)
@@ -294,6 +295,12 @@ class Ui(QtWidgets.QMainWindow):
         # update the series property boxes appropriately
         self.seriesVisibleCheckBox.setChecked(self.plots[series_index].isVisible())
         self.seriesPlotTypeComboBox.setCurrentIndex(self.plot_types[series_index])
+        self.seriesNameLineEdit.setText(self.plots[series_index].getAxis("left").labelText)
+
+    def on_seriesNameLineEdit_textChanged(self, text):
+        series_index = self.seriesSelectorSpinBox.value()
+        self.plots[series_index].setLabel("left", text)
+        self.settings.setValue(f"ui/seriesName[{series_index}]", text)
 
     @QtCore.pyqtSlot(bool)
     def on_seriesVisibleCheckBox_clicked(self, checked):

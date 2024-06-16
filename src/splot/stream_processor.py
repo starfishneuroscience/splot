@@ -39,7 +39,9 @@ class StreamProcessor:
 
         if self.binary:
             self.binary_dtype = np.dtype(binary_dtype_string)
-            num_streams = len(self.binary_dtype) - 1
+
+            num_streams = np.sum([1 if len(x) <= 2 else np.prod(x[2]) for x in self.binary_dtype.descr])
+            num_streams -= 1  # subtract one to ignore header byte
             self.message_delimiter = int(message_delimiter) % 256
         else:
             num_streams = ascii_num_streams
