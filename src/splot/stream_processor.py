@@ -38,6 +38,7 @@ class StreamProcessor:
         self.write_ptr = 0  # write pointer for this class's *plot_buffer*
 
         self.save_file = None  # handle to file for saving data
+        self.csv_writer = None
 
         if self.binary:
             self.binary_dtype = np.dtype(binary_dtype_string)
@@ -96,14 +97,19 @@ class StreamProcessor:
             for message in messages:
                 if message == "":
                     continue
-                nums = self.numeric_rx.findall(message)
-                nums = np.array(nums, dtype=float)
-                logger.debug(f"parsed {message=} to {nums=}")
-                if len(nums) >= self.plot_buffer.shape[1]:
-                    self.plot_buffer[self.write_ptr] = nums[: self.plot_buffer.shape[1]]
+                numbers = self.numeric_rx.findall(message)
+                numbers = np.array(numbers, dtype=float)
+                logger.debug(f"parsed {message=} to {numbers=}")
+
+                # if we're saving to file, dump new data to file here
+                if self.save_file is not None:
+                    self.save_file.write(",".join(numbers.astype(str)) + "\n")
+
+                if len(numbers) >= self.plot_buffer.shape[1]:
+                    self.plot_buffer[self.write_ptr] = numbers[: self.plot_buffer.shape[1]]
                 else:
-                    self.plot_buffer[self.write_ptr, : len(nums)] = nums
-                    self.plot_buffer[self.write_ptr, len(nums) :] = np.nan
+                    self.plot_buffer[self.write_ptr, : len(numbers)] = numbers
+                    self.plot_buffer[self.write_ptr, len(numbers) :] = np.nan
                 self.write_ptr = (self.write_ptr + 1) % self.plot_buffer.shape[0]
 
         elif self.binary:

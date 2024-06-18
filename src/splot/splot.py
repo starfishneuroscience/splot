@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import csv
 import datetime
 import importlib.resources
 import json
@@ -355,16 +356,25 @@ class Ui(QtWidgets.QMainWindow):
         #   we programmatically change the state of the button.
         if checked:
             # start recording data
-            filename = datetime.datetime.now().strftime("serialcapture_%Y-%m-%d_%H-%M-%S.bin")
+            filename = datetime.datetime.now().strftime("serialcapture_%Y-%m-%d_%H-%M-%S")
             full_path = self.saveLocationLabel.text() + "/" + filename
+            full_path += ".bin" if self.stream_processor.binary else ".csv"
             logger.info(f"Creating file for saving data: {full_path}")
-            self.save_file = open(full_path, "wb")
 
-            # write header
             series_names = [plot.getAxis("left").labelText for plot in self.plots]
-            header = {"dtype_string": self.binaryDtypeStringLineEdit.text(), "series_names": series_names}
-            byte_str = bytes(json.dumps(header), "utf-8")
-            self.save_file.write(byte_str)
+
+            if self.stream_processor.binary:
+                self.save_file = open(full_path, "wb")
+                # write json header
+
+                header = {"dtype_string": self.binaryDtypeStringLineEdit.text(), "series_names": series_names}
+                byte_str = bytes(json.dumps(header), "utf-8")
+                self.save_file.write(byte_str)
+
+            else:  # ascii data, write csv header
+                self.save_file = open(full_path, "w")
+                writer = csv.writer(self.save_file)
+                writer.writerow(series_names)
 
             # give handle to stream_processor to dump data into
             self.stream_processor.save_file = self.save_file
