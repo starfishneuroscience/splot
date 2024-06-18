@@ -22,9 +22,16 @@ See the `LICENSE` file.
 ## Performance
 splot has been tested with 12M baud serial connections with net data rates exceeding 1 MB/sec (66% utilization). Over a TCP connection, splot can smoothly parse and plot 1.4 MB/sec of ascii data on a Macbook pro (M1).
 
-## Development
+## Saving data
+splot can save binary data or text/ascii data.
 
-### Architecture
+When receiving binary data, splot can save a file consisting of a json header including the data format (as specified as a numpy dtype string) and the data series names, followed by the binary data. It will only save complete messages; incomplete messages will be ignored. A helper function `read_serial_capture_binary` can be used to read this file and format it as a pandas dataframe, e.g.,
+```py
+import splot
+dataframe = splot.read_serial_capture_binary('/home/x/data/serialcapture_2024-06-17_17-49-54.bin')
+```
+
+When receiving ascii data, splot simply records it as a csv file.
 
 ## To-do and possible future directions
 ### To-do
@@ -58,26 +65,28 @@ There are a number of similar projects out there from which splot takes inspirat
  - https://github.com/hacknus/serial-monitor-rust
 
 ## Changelog:
- - PR #1:
-    - handle sockets, not just serial ports. you can type in a tcp/udp address into "source" and it will connect automatically.
-    - handle ascii messages with numerical fields
-    - add mouseover documentation for dtype_string
-    - in binary, message size should be inferred from dtype_string
-    - make different config options available on UI when parsing different message types
- - PR #2:
-    - Restructure as python package to allow easy install. Still works with local editable install (`pip install -e <repo path>`).
- - PR #3:
-    - Fix some bad bugs in ASCII parsing (would re-read same buffer if no new data were present! wouldnt parse floats correctly!)
-    - UI cleanup: alignment/sizing, make plot colors match system theme.
-    - Add example TCP server for testing ascii parsing.
- - PR #4:
-    - Pause didn't pause processing, just updating the plots. Pause now inhibits stream processor, so plot buffers dont update.
-    - Show vertical bar for current plot position
-    - Color scheme was bad for 'light' system theme. Now correctly pulls theme colors and uses them.
-    - Add persistent settings when closing and re-opening app via QSettings.
+- PR #8:
+    - enable saving data
 - PR #6:
     - Pause now respected when connecting/disconnecting
     - Unique colors for each plot
     - Allow disabling of certain streams for plotting
     - Remove margins between plots and x-axes of all plots except bottom one, so that plots can be bigger
     - Allow plotting of data series as rasters (interpreting values as bit-masks)
+ - PR #4:
+    - Pause didn't pause processing, just updating the plots. Pause now inhibits stream processor, so plot buffers dont update.
+    - Show vertical bar for current plot position
+    - Color scheme was bad for 'light' system theme. Now correctly pulls theme colors and uses them.
+    - Add persistent settings when closing and re-opening app via QSettings.
+ - PR #3:
+    - Fix some bad bugs in ASCII parsing (would re-read same buffer if no new data were present! wouldnt parse floats correctly!)
+    - UI cleanup: alignment/sizing, make plot colors match system theme.
+    - Add example TCP server for testing ascii parsing.
+ - PR #2:
+    - Restructure as python package to allow easy install. Still works with local editable install (`pip install -e <repo path>`).
+ - PR #1:
+    - handle sockets, not just serial ports. you can type in a tcp/udp address into "source" and it will connect automatically.
+    - handle ascii messages with numerical fields
+    - add mouseover documentation for dtype_string
+    - in binary, message size should be inferred from dtype_string
+    - make different config options available on UI when parsing different message types
