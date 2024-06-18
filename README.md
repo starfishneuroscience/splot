@@ -70,6 +70,9 @@ There are a number of similar projects out there from which splot takes inspirat
 ## Changelog:
 - PR #8:
     - enable saving data
+    - revert to same color on all plots
+    - add name for each plot
+    - make names, visility, and type (analog or bitmask) of plots persistent
 - PR #6:
     - Pause now respected when connecting/disconnecting
     - Unique colors for each plot

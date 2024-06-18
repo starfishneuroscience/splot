@@ -228,7 +228,6 @@ class Ui(QtWidgets.QMainWindow):
     def vector_to_bit_raster(self, dat):
         x = []
         y = []
-
         # analyze only non-zero indices for speed (sparsity assumption)
         non_zero_indices = np.where(dat > 0)[0]
         try:
