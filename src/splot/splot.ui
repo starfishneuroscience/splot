@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>790</width>
-    <height>619</height>
+    <height>725</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -109,26 +109,6 @@
             </item>
            </widget>
           </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="dataRateBpsLabel">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string>Data rate:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QLabel" name="dataRateBpsValueLabel">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string>---</string>
-            </property>
-           </widget>
-          </item>
          </layout>
         </widget>
        </item>
@@ -155,6 +135,9 @@
             </size>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_2">
+            <property name="spacing">
+             <number>4</number>
+            </property>
             <property name="leftMargin">
              <number>0</number>
             </property>
@@ -186,7 +169,7 @@
                 <enum>QFormLayout::ExpandingFieldsGrow</enum>
                </property>
                <property name="verticalSpacing">
-                <number>5</number>
+                <number>4</number>
                </property>
                <property name="leftMargin">
                 <number>12</number>
@@ -264,6 +247,28 @@
                  </property>
                 </widget>
                </item>
+               <item row="4" column="1">
+                <widget class="QSpinBox" name="serialReadChunkSizeSpinBox">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="keyboardTracking">
+                  <bool>false</bool>
+                 </property>
+                 <property name="minimum">
+                  <number>1</number>
+                 </property>
+                 <property name="maximum">
+                  <number>99999999</number>
+                 </property>
+                 <property name="value">
+                  <number>10000</number>
+                 </property>
+                </widget>
+               </item>
                <item row="5" column="0">
                 <widget class="QLabel" name="serialBufferSizeLabel">
                  <property name="text">
@@ -293,28 +298,6 @@
                  </property>
                 </widget>
                </item>
-               <item row="4" column="1">
-                <widget class="QSpinBox" name="serialReadChunkSizeSpinBox">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="keyboardTracking">
-                  <bool>false</bool>
-                 </property>
-                 <property name="minimum">
-                  <number>1</number>
-                 </property>
-                 <property name="maximum">
-                  <number>99999999</number>
-                 </property>
-                 <property name="value">
-                  <number>10000</number>
-                 </property>
-                </widget>
-               </item>
               </layout>
              </widget>
             </item>
@@ -334,7 +317,7 @@
                 <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
                </property>
                <property name="verticalSpacing">
-                <number>5</number>
+                <number>4</number>
                </property>
                <item row="0" column="0">
                 <widget class="QLabel" name="label_13">
@@ -444,6 +427,9 @@
                <property name="fieldGrowthPolicy">
                 <enum>QFormLayout::ExpandingFieldsGrow</enum>
                </property>
+               <property name="verticalSpacing">
+                <number>4</number>
+               </property>
                <item row="0" column="0">
                 <widget class="QLabel" name="seriesLabel">
                  <property name="text">
@@ -461,14 +447,14 @@
                  </property>
                 </widget>
                </item>
-               <item row="2" column="0">
+               <item row="3" column="0">
                 <widget class="QLabel" name="seriesPlotTypeLabel">
                  <property name="text">
                   <string>Plot type</string>
                  </property>
                 </widget>
                </item>
-               <item row="2" column="1">
+               <item row="3" column="1">
                 <widget class="QComboBox" name="seriesPlotTypeComboBox">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -488,14 +474,14 @@
                  </item>
                 </widget>
                </item>
-               <item row="1" column="0">
+               <item row="2" column="0">
                 <widget class="QLabel" name="seriesVisibleLabel">
                  <property name="text">
                   <string>Visible?</string>
                  </property>
                 </widget>
                </item>
-               <item row="1" column="1">
+               <item row="2" column="1">
                 <widget class="QCheckBox" name="seriesVisibleCheckBox">
                  <property name="enabled">
                   <bool>true</bool>
@@ -504,6 +490,88 @@
                   <bool>true</bool>
                  </property>
                 </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="seriesNameLabel">
+                 <property name="text">
+                  <string>Name</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QLineEdit" name="seriesNameLineEdit"/>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QFrame" name="saveFrame">
+              <property name="frameShape">
+               <enum>QFrame::StyledPanel</enum>
+              </property>
+              <property name="frameShadow">
+               <enum>QFrame::Raised</enum>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout">
+               <property name="spacing">
+                <number>4</number>
+               </property>
+               <item>
+                <layout class="QFormLayout" name="formLayout_3">
+                 <property name="fieldGrowthPolicy">
+                  <enum>QFormLayout::ExpandingFieldsGrow</enum>
+                 </property>
+                 <property name="verticalSpacing">
+                  <number>0</number>
+                 </property>
+                 <item row="0" column="0">
+                  <widget class="QPushButton" name="setSaveLocationPushButton">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="text">
+                    <string>Set save loc.</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="QPushButton" name="savePushButton">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="text">
+                    <string>Save data</string>
+                   </property>
+                   <property name="checkable">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QFormLayout" name="formLayout_5">
+                 <item row="0" column="0">
+                  <widget class="QLabel" name="saveToLabel">
+                   <property name="text">
+                    <string>Save to:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="QLabel" name="saveLocationLabel">
+                   <property name="text">
+                    <string>(None)</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
                </item>
               </layout>
              </widget>

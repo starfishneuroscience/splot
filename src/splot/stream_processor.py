@@ -37,9 +37,14 @@ class StreamProcessor:
 
         self.write_ptr = 0  # write pointer for this class's *plot_buffer*
 
+        self.save_file = None  # handle to file for saving data
+        self.csv_writer = None
+
         if self.binary:
             self.binary_dtype = np.dtype(binary_dtype_string)
-            num_streams = len(self.binary_dtype) - 1
+
+            num_streams = np.sum([1 if len(x) <= 2 else np.prod(x[2]) for x in self.binary_dtype.descr])
+            num_streams -= 1  # subtract one to ignore header byte
             self.message_delimiter = int(message_delimiter) % 256
         else:
             num_streams = ascii_num_streams
@@ -71,10 +76,10 @@ class StreamProcessor:
 
     def process_new_data(self):
         """This slot should be connected to serial_receiver's data_received signal."""
-        # get new data
         if self.paused:
             return
 
+        # get new data
         new_data = self.serial_receiver.get_new_data(self.read_ptr)
         num_bytes_read = len(new_data)
 
@@ -92,14 +97,19 @@ class StreamProcessor:
             for message in messages:
                 if message == "":
                     continue
-                nums = self.numeric_rx.findall(message)
-                nums = np.array(nums, dtype=float)
-                logger.debug(f"parsed {message=} to {nums=}")
-                if len(nums) >= self.plot_buffer.shape[1]:
-                    self.plot_buffer[self.write_ptr] = nums[: self.plot_buffer.shape[1]]
+                numbers = self.numeric_rx.findall(message)
+                numbers = np.array(numbers, dtype=float)
+                logger.debug(f"parsed {message=} to {numbers=}")
+
+                # if we're saving to file, dump new data to file here
+                if self.save_file is not None:
+                    self.save_file.write(",".join(numbers.astype(str)) + "\n")
+
+                if len(numbers) >= self.plot_buffer.shape[1]:
+                    self.plot_buffer[self.write_ptr] = numbers[: self.plot_buffer.shape[1]]
                 else:
-                    self.plot_buffer[self.write_ptr, : len(nums)] = nums
-                    self.plot_buffer[self.write_ptr, len(nums) :] = np.nan
+                    self.plot_buffer[self.write_ptr, : len(numbers)] = numbers
+                    self.plot_buffer[self.write_ptr, len(numbers) :] = np.nan
                 self.write_ptr = (self.write_ptr + 1) % self.plot_buffer.shape[0]
 
         elif self.binary:
@@ -109,6 +119,7 @@ class StreamProcessor:
             delimiter_indices = np.where(new_data == self.message_delimiter)[0]
             if len(delimiter_indices) == 0:
                 return
+
             # remove delimiters that would make messages too short (must be part of data)
             valid_delimiter_indices = [delimiter_indices[0]]
             for index in delimiter_indices:
@@ -140,10 +151,15 @@ class StreamProcessor:
             # messages to streams (e.g. 8 byte message to 2 uint8s, 1 uint16, 1 uint32):
             # the numpy parser is amazing, see docs:
             #   https://numpy.org/doc/stable/reference/arrays.dtypes.html#arrays-dtypes-constructing
-            data = np.frombuffer(np.concatenate(messages), self.binary_dtype)
-            data = rfn.structured_to_unstructured(data)
+            structured_data = np.frombuffer(np.concatenate(messages), self.binary_dtype)
+            data = rfn.structured_to_unstructured(structured_data)
             data = data[:, 1:]  # drop 1st column, it's the delimiter which is constant by definition
 
+            # if we're saving to file, dump new data to file here
+            if self.save_file is not None:
+                self.save_file.write(np.concatenate(messages).tobytes())
+
+            # update ring-buffer that plot UI will use
             n = len(messages)
             if n >= self.plot_buffer.shape[0]:
                 # If data is larger than plot_buffer, just overwrite the whole buffer with the most recent data

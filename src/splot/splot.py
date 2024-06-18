@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
+import csv
+import datetime
 import importlib.resources
+import json
 import logging
+from pathlib import Path
 import signal
 import socket
 import sys
@@ -46,7 +50,7 @@ class Ui(QtWidgets.QMainWindow):
         palette = QtWidgets.QApplication.palette()
         bgcolor = palette.color(QtGui.QPalette.ColorRole.Window)
         fgcolor = palette.color(QtGui.QPalette.ColorRole.WindowText)
-        self.plot_series_color = palette.color(QtGui.QPalette.ColorRole.WindowText)
+        self.plot_series_color = fgcolor
         pg.setConfigOption("background", bgcolor.name())
         pg.setConfigOption("foreground", fgcolor.name())
 
@@ -66,7 +70,10 @@ class Ui(QtWidgets.QMainWindow):
 
         self.load_stored_settings()
 
-        self.seriesPropertyFrame.setEnabled(False)
+        self.enable_ui_elements_on_connection(connected=False)
+
+        self.saveLocationLabel.setText(str(Path.home()))
+        self.save_file = None
 
     def populate_serial_options(self):
         option_map = {
@@ -143,12 +150,10 @@ class Ui(QtWidgets.QMainWindow):
             paused=self.pausePushButton.isChecked(),
         )
         self.serial_receiver.data_received.connect(self.stream_processor.process_new_data)
-        self.serial_receiver.data_rate.connect(self.dataRateBpsValueLabel.setNum)
+        self.serial_receiver.data_rate.connect(lambda x: self.statusBar().showMessage(f"Data rate: {x} bytes/sec"))
         self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
         self.serial_receiver.start()
-
-        self.serialParametersFrame.setEnabled(False)
-        self.seriesPropertyFrame.setEnabled(True)
+        self.enable_ui_elements_on_connection(connected=True)
 
     def disconnect_from_serial(self):
         if self.serial_receiver is not None:
@@ -158,8 +163,13 @@ class Ui(QtWidgets.QMainWindow):
             self.serial_receiver = None
         if self.socket is not None:
             self.socket.close()
-        self.serialParametersFrame.setEnabled(True)
-        self.seriesPropertyFrame.setEnabled(False)
+        self.savePushButton.setChecked(False)
+        self.enable_ui_elements_on_connection(connected=False)
+
+    def enable_ui_elements_on_connection(self, connected: bool):
+        self.serialParametersFrame.setEnabled(not connected)
+        self.seriesPropertyFrame.setEnabled(connected)
+        self.savePushButton.setEnabled(connected)
 
     def update_serial_ports(self):
         new_ports = serial.tools.list_ports.comports()
@@ -188,34 +198,50 @@ class Ui(QtWidgets.QMainWindow):
         self.plots = []
         self.plot_cursor_lines = []
         self.plot_layout.clear()
+
+        visible = [self.settings.value(f"ui/seriesVisible[{i}]") for i in range(num_streams)]
+        visible = [True if x is None else x for x in visible]
+        visible_plots = np.where(visible)[0]
+
         for i in range(num_streams):
             plot = self.plot_layout.addPlot(x=[], y=[], row=i, col=0, pen=self.plot_series_color)
             line = pg.InfiniteLine(pos=0, angle=90, pen="red")
             plot.addItem(line)
-            self.plots.append(plot)
-            self.plot_cursor_lines.append(line)
-            self.plot_types.append(0)  # default to 'analog' (index 0)
+            plot.setLabel("left", self.settings.value(f"ui/seriesName[{i}]"))
+            plot.setVisible(visible[i])
             if i > 0:
                 plot.setXLink(self.plots[0])
-            if i < num_streams - 1:
+            if i != visible_plots[-1]:
                 plot.hideAxis("bottom")
+            self.plots.append(plot)
+            self.plot_cursor_lines.append(line)
+
+        # default to plot_type = 0 if no QSettings entry exists
+        self.plot_types = [self.settings.value(f"ui/seriesPlotType[{i}]") or 0 for i in range(num_streams)]
 
         self.seriesSelectorSpinBox.setValue(0)
         self.seriesSelectorSpinBox.setMaximum(num_streams - 1)
 
+        # set initial UI elements to correct values
+        self.on_seriesSelectorSpinBox_valueChanged(0)
+
     def vector_to_bit_raster(self, dat):
-        nzi = np.where(dat > 0)[0]  # non-zero indices
         x = []
         y = []
+        # analyze only non-zero indices for speed (sparsity assumption)
+        non_zero_indices = np.where(dat > 0)[0]
         try:
             max_bit_index = int(np.log2(max(dat)) + 1)
         except ValueError:
             max_bit_index = 1
+
+        # go through each bit up to max_bit_value and add vertical lines of height 0.8 at each x position
         for bit_index in range(max_bit_index):
-            ind = np.where(dat[nzi].astype(int) & (1 << bit_index))[0]
-            x.append(np.repeat(nzi[ind], 2))
+            ind = np.where(dat[non_zero_indices].astype(int) & (1 << bit_index))[0]
+            x.append(np.repeat(non_zero_indices[ind], 2))
             y.append(np.tile([bit_index - 0.4, bit_index + 0.4], len(ind)))
-        # add horizontal lines for each bit field
+
+        # add horizontal lines for each bit (so that all less-significant bits will still get plotted)
         x.append(np.tile([0, len(dat)], max_bit_index))
         y.append(np.concatenate([[i, i] for i in range(max_bit_index)]))
 
@@ -294,11 +320,19 @@ class Ui(QtWidgets.QMainWindow):
         # update the series property boxes appropriately
         self.seriesVisibleCheckBox.setChecked(self.plots[series_index].isVisible())
         self.seriesPlotTypeComboBox.setCurrentIndex(self.plot_types[series_index])
+        self.seriesNameLineEdit.setText(self.plots[series_index].getAxis("left").labelText)
+
+    @QtCore.pyqtSlot(str)
+    def on_seriesNameLineEdit_textChanged(self, text):
+        series_index = self.seriesSelectorSpinBox.value()
+        self.plots[series_index].setLabel("left", text)
+        self.settings.setValue(f"ui/seriesName[{series_index}]", text)
 
     @QtCore.pyqtSlot(bool)
     def on_seriesVisibleCheckBox_clicked(self, checked):
         series_index = self.seriesSelectorSpinBox.value()
         self.plots[series_index].setVisible(checked)
+        self.settings.setValue(f"ui/seriesVisible[{series_index}]", checked)
 
         visible_plot_indices = [i for i in range(len(self.plots)) if self.plots[i].isVisible()]
         # make sure the last plot has an x-axis visible and the 2nd-to-last doesn't
@@ -309,6 +343,51 @@ class Ui(QtWidgets.QMainWindow):
     def on_seriesPlotTypeComboBox_currentIndexChanged(self, index):
         series_index = self.seriesSelectorSpinBox.value()
         self.plot_types[series_index] = index
+        self.settings.setValue(f"ui/seriesPlotType[{series_index}]", index)
+
+    @QtCore.pyqtSlot()
+    def on_setSaveLocationPushButton_clicked(self):
+        self.saveLocationLabel.setText(QtWidgets.QFileDialog.getExistingDirectory())
+
+    @QtCore.pyqtSlot(bool)
+    def on_savePushButton_toggled(self, checked):
+        # note: toggled signal will be called regardless of whether user clicks or if
+        #   we programmatically change the state of the button.
+        if checked:
+            # start recording data
+            filename = datetime.datetime.now().strftime("serialcapture_%Y-%m-%d_%H-%M-%S")
+            full_path = self.saveLocationLabel.text() + "/" + filename
+            full_path += ".bin" if self.stream_processor.binary else ".csv"
+            logger.info(f"Creating file for saving data: {full_path}")
+
+            series_names = [plot.getAxis("left").labelText for plot in self.plots]
+
+            if self.stream_processor.binary:
+                self.save_file = open(full_path, "wb")
+                # write json header
+
+                header = {"dtype_string": self.binaryDtypeStringLineEdit.text(), "series_names": series_names}
+                byte_str = bytes(json.dumps(header), "utf-8")
+                self.save_file.write(byte_str)
+
+            else:  # ascii data, write csv header
+                self.save_file = open(full_path, "w")
+                writer = csv.writer(self.save_file)
+                writer.writerow(series_names)
+
+            # give handle to stream_processor to dump data into
+            self.stream_processor.save_file = self.save_file
+
+            # let the user know we're saving, change the button's function to "stop saving"
+            self.savePushButton.setText("Stop saving")
+        elif not checked:
+            # stop recording data
+            self.savePushButton.setText("Save data")
+            if self.save_file is not None:
+                logger.info("Closing save file.")
+                self.stream_processor.save_file = None
+                self.save_file.close()
+                self.save_file = None
 
     @QtCore.pyqtSlot(int)
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
