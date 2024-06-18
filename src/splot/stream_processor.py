@@ -37,6 +37,8 @@ class StreamProcessor:
 
         self.write_ptr = 0  # write pointer for this class's *plot_buffer*
 
+        self.save_file = None  # handle to file for saving data
+
         if self.binary:
             self.binary_dtype = np.dtype(binary_dtype_string)
 
@@ -111,6 +113,7 @@ class StreamProcessor:
             delimiter_indices = np.where(new_data == self.message_delimiter)[0]
             if len(delimiter_indices) == 0:
                 return
+
             # remove delimiters that would make messages too short (must be part of data)
             valid_delimiter_indices = [delimiter_indices[0]]
             for index in delimiter_indices:
@@ -142,14 +145,13 @@ class StreamProcessor:
             # messages to streams (e.g. 8 byte message to 2 uint8s, 1 uint16, 1 uint32):
             # the numpy parser is amazing, see docs:
             #   https://numpy.org/doc/stable/reference/arrays.dtypes.html#arrays-dtypes-constructing
-            data = np.frombuffer(np.concatenate(messages), self.binary_dtype)
-            data = rfn.structured_to_unstructured(data)
+            structured_data = np.frombuffer(np.concatenate(messages), self.binary_dtype)
+            data = rfn.structured_to_unstructured(structured_data)
             data = data[:, 1:]  # drop 1st column, it's the delimiter which is constant by definition
 
             # if we're saving to file, dump new data to file here
-            # - avro
-            # - straight binary
-            # - csv
+            if self.save_file is not None:
+                self.save_file.write(np.concatenate(messages).tobytes())
 
             # update ring-buffer that plot UI will use
             n = len(messages)

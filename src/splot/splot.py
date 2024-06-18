@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
+import datetime
 import importlib.resources
+import json
 import logging
+from pathlib import Path
 import signal
 import socket
 import sys
@@ -66,7 +69,10 @@ class Ui(QtWidgets.QMainWindow):
 
         self.load_stored_settings()
 
-        self.seriesPropertyFrame.setEnabled(False)
+        self.enable_ui_elements_on_connection(connected=False)
+
+        self.saveLocationLabel.setText(str(Path.home()))
+        self.save_file = None
 
     def populate_serial_options(self):
         option_map = {
@@ -144,11 +150,9 @@ class Ui(QtWidgets.QMainWindow):
         )
         self.serial_receiver.data_received.connect(self.stream_processor.process_new_data)
         self.serial_receiver.data_rate.connect(lambda x: self.statusBar().showMessage(f"Data rate: {x} bytes/sec"))
-        self.seriesPropertyFrame.setEnabled(True)
         self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
         self.serial_receiver.start()
-
-        self.serialParametersFrame.setEnabled(False)
+        self.enable_ui_elements_on_connection(connected=True)
 
     def disconnect_from_serial(self):
         if self.serial_receiver is not None:
@@ -158,8 +162,13 @@ class Ui(QtWidgets.QMainWindow):
             self.serial_receiver = None
         if self.socket is not None:
             self.socket.close()
-        self.serialParametersFrame.setEnabled(True)
-        self.seriesPropertyFrame.setEnabled(False)
+        self.savePushButton.setChecked(False)
+        self.enable_ui_elements_on_connection(connected=False)
+
+    def enable_ui_elements_on_connection(self, connected: bool):
+        self.serialParametersFrame.setEnabled(not connected)
+        self.seriesPropertyFrame.setEnabled(connected)
+        self.savePushButton.setEnabled(connected)
 
     def update_serial_ports(self):
         new_ports = serial.tools.list_ports.comports()
@@ -216,18 +225,23 @@ class Ui(QtWidgets.QMainWindow):
         self.on_seriesSelectorSpinBox_valueChanged(0)
 
     def vector_to_bit_raster(self, dat):
-        nzi = np.where(dat > 0)[0]  # non-zero indices
         x = []
         y = []
+
+        # analyze only non-zero indices for speed (sparsity assumption)
+        non_zero_indices = np.where(dat > 0)[0]
         try:
             max_bit_index = int(np.log2(max(dat)) + 1)
         except ValueError:
             max_bit_index = 1
+
+        # go through each bit up to max_bit_value and add vertical lines of height 0.8 at each x position
         for bit_index in range(max_bit_index):
-            ind = np.where(dat[nzi].astype(int) & (1 << bit_index))[0]
-            x.append(np.repeat(nzi[ind], 2))
+            ind = np.where(dat[non_zero_indices].astype(int) & (1 << bit_index))[0]
+            x.append(np.repeat(non_zero_indices[ind], 2))
             y.append(np.tile([bit_index - 0.4, bit_index + 0.4], len(ind)))
-        # add horizontal lines for each bit field
+
+        # add horizontal lines for each bit (so that all less-significant bits will still get plotted)
         x.append(np.tile([0, len(dat)], max_bit_index))
         y.append(np.concatenate([[i, i] for i in range(max_bit_index)]))
 
@@ -333,8 +347,38 @@ class Ui(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot()
     def on_setSaveLocationPushButton_clicked(self):
-        directory = QtWidgets.QFileDialog.getExistingDirectory()
-        self.saveLocationLabel.setText("Save to: " + directory)
+        self.saveLocationLabel.setText(QtWidgets.QFileDialog.getExistingDirectory())
+
+    @QtCore.pyqtSlot(bool)
+    def on_savePushButton_toggled(self, checked):
+        # note: toggled signal will be called regardless of whether user clicks or if
+        #   we programmatically change the state of the button.
+        if checked:
+            # start recording data
+            filename = datetime.datetime.now().strftime("serialcapture_%Y-%m-%d_%H-%M-%S.bin")
+            full_path = self.saveLocationLabel.text() + "/" + filename
+            logger.info(f"Creating file for saving data: {full_path}")
+            self.save_file = open(full_path, "wb")
+
+            # write header
+            series_names = [plot.getAxis("left").labelText for plot in self.plots]
+            header = {"dtype_string": self.binaryDtypeStringLineEdit.text(), "series_names": series_names}
+            byte_str = bytes(json.dumps(header), "utf-8")
+            self.save_file.write(byte_str)
+
+            # give handle to stream_processor to dump data into
+            self.stream_processor.save_file = self.save_file
+
+            # let the user know we're saving, change the button's function to "stop saving"
+            self.savePushButton.setText("Stop saving")
+        elif not checked:
+            # stop recording data
+            self.savePushButton.setText("Save data")
+            if self.save_file is not None:
+                logger.info("Closing save file.")
+                self.stream_processor.save_file = None
+                self.save_file.close()
+                self.save_file = None
 
     @QtCore.pyqtSlot(int)
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
