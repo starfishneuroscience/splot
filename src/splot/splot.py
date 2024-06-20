@@ -39,7 +39,8 @@ class Ui(QtWidgets.QMainWindow):
         self.serial_receiver = None
         self.stream_processor = None
 
-        self.socket = None  # have to keep this around to properly close it
+        self.socket = None  # keep these around to properly close them
+        self.serial_connection = None
 
         # timer to update plots at 30 Hz
         self.plot_timer = QtCore.QTimer()
@@ -126,14 +127,14 @@ class Ui(QtWidgets.QMainWindow):
                     return
         else:
             logger.info(f"Trying to connect to serial port: {port}")
-            serial_connection = serial.Serial(
+            self.serial_connection = serial.Serial(
                 port,
                 baudrate=int(self.serialBaudRateComboBox.currentText()),
                 parity=self.serialParityComboBox.currentText(),
                 stopbits=float(self.serialStopBitsComboBox.currentText()),
                 timeout=0.010,
             )
-            read_function = serial_connection.read
+            read_function = self.serial_connection.read
 
         self.serial_receiver = SerialReceiver(
             read_function=read_function,
@@ -161,6 +162,7 @@ class Ui(QtWidgets.QMainWindow):
             self.serial_receiver.wait()
             self.serial_receiver.disconnect()  # disconnect all slots
             self.serial_receiver = None
+            self.serial_connection.close()
         if self.socket is not None:
             self.socket.close()
         self.savePushButton.setChecked(False)
@@ -228,12 +230,14 @@ class Ui(QtWidgets.QMainWindow):
     def vector_to_bit_raster(self, dat):
         x = []
         y = []
+
+        if not all(np.isnan(dat)) and np.nanmax(dat) > 0 and np.isfinite(np.nanmax(dat)):
+            max_bit_index = int(np.log2(np.nanmax(dat)) + 1)
+        else:
+            max_bit_index = 8
+
         # analyze only non-zero indices for speed (sparsity assumption)
         non_zero_indices = np.where(dat > 0)[0]
-        try:
-            max_bit_index = int(np.log2(max(dat)) + 1)
-        except ValueError:
-            max_bit_index = 1
 
         # go through each bit up to max_bit_value and add vertical lines of height 0.8 at each x position
         for bit_index in range(max_bit_index):
