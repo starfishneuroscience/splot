@@ -90,15 +90,15 @@ class Ui(QtWidgets.QMainWindow):
     def load_stored_settings(self):
         settings_map = {
             "ui/serialBaudRate": self.serialBaudRateComboBox.setCurrentText,
-            "ui/serialParityIndex": self.serialParityComboBox.setCurrentIndex,
-            "ui/serialStopBitsIndex": self.serialStopBitsComboBox.setCurrentIndex,
-            "ui/serialReadChunkSize": self.serialReadChunkSizeSpinBox.setValue,
-            "ui/serialBufferSize": self.serialBufferSizeSpinBox.setValue,
-            "ui/numberOfStreams": self.numberOfStreamsSpinBox.setValue,
-            "ui/dataFormatIndex": self.dataFormatComboBox.setCurrentIndex,
+            "ui/serialParityIndex": lambda x: self.serialParityComboBox.setCurrentIndex(int(x)),
+            "ui/serialStopBitsIndex": lambda x: self.serialStopBitsComboBox.setCurrentIndex(int(x)),
+            "ui/serialReadChunkSize": lambda x: self.serialReadChunkSizeSpinBox.setValue(int(x)),
+            "ui/serialBufferSize": lambda x: self.serialBufferSizeSpinBox.setValue(int(x)),
+            "ui/numberOfStreams": lambda x: self.numberOfStreamsSpinBox.setValue(int(x)),
+            "ui/dataFormatIndex": lambda x: self.dataFormatComboBox.setCurrentIndex(int(x)),
             "ui/messageDelimiter": self.messageDelimiterLineEdit.setText,
             "ui/binaryDtypeString": self.binaryDtypeStringLineEdit.setText,
-            "ui/plotLength": self.plotLengthSpinBox.setValue,
+            "ui/plotLength": lambda x: self.plotLengthSpinBox.setValue(int(x)),
         }
         for key, set_function in settings_map.items():
             value = self.settings.value(key)
