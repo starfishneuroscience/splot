@@ -202,7 +202,7 @@ class Ui(QtWidgets.QMainWindow):
         self.plot_layout.clear()
 
         visible = [self.settings.value(f"ui/seriesVisible[{i}]") for i in range(num_streams)]
-        visible = [True if x is None else x for x in visible]
+        visible = [True if x is None else bool(x) for x in visible]
         visible_plots = np.where(visible)[0]
 
         for i in range(num_streams):
@@ -219,7 +219,8 @@ class Ui(QtWidgets.QMainWindow):
             self.plot_cursor_lines.append(line)
 
         # default to plot_type = 0 if no QSettings entry exists
-        self.plot_types = [self.settings.value(f"ui/seriesPlotType[{i}]") or 0 for i in range(num_streams)]
+        settings_plot_types = [self.settings.value(f"ui/seriesPlotType[{i}]") for i in range(num_streams)]
+        self.plot_types = [0 if x is None else int(x) for x in settings_plot_types]
 
         self.seriesSelectorSpinBox.setValue(0)
         self.seriesSelectorSpinBox.setMaximum(num_streams - 1)
