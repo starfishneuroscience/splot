@@ -410,10 +410,13 @@ class Ui(QtWidgets.QMainWindow):
 
 
 def main():
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
     app = QtWidgets.QApplication(sys.argv)
     window = Ui()
     window.show()
+
+    # handle ctrl-c correctly
+    signal.signal(signal.SIGINT, window.close)
+
     app.exec()
 
 
