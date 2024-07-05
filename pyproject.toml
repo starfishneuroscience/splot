@@ -16,6 +16,7 @@ dependencies = [
   "pyqt6>=6.5",
   "pyqtgraph>=0.13.3",
   "pyserial>=3.5",
+  "crc>=7.0",
 ]
 license = {file = "LICENSE"}
 

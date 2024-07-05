@@ -4,6 +4,8 @@ import re
 import numpy as np
 from numpy.lib import recfunctions as rfn
 
+from crc import Calculator, Crc16, Configuration
+
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,17 @@ class StreamProcessor:
 
         self.save_file = None  # handle to file for saving data
         self.csv_writer = None
+
+        self.calculator = Calculator(
+            Configuration(
+                width=16,
+                polynomial=0x8005,
+                init_value=0x00,
+                final_xor_value=0x00,
+                reverse_input=False,
+                reverse_output=False,
+            ), optimized=True
+        )
 
         if self.binary:
             self.binary_dtype = np.dtype(binary_dtype_string)
@@ -83,7 +96,10 @@ class StreamProcessor:
         new_data = self.serial_receiver.get_new_data(self.read_ptr)
         num_bytes_read = len(new_data)
 
+        self.calculator.checksum(new_data)
+
         if not self.binary:
+            # ASCII mode
             new_data = new_data.tobytes().decode("ascii")
             if self.message_delimiter not in new_data:
                 return
@@ -113,6 +129,7 @@ class StreamProcessor:
                 self.write_ptr = (self.write_ptr + 1) % self.plot_buffer.shape[0]
 
         elif self.binary:
+            # Binary mode
             expected_length = self.binary_dtype.itemsize
 
             # preliminary pass - split on delimiter
