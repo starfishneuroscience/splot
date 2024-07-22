@@ -167,6 +167,7 @@ class Ui(QtWidgets.QMainWindow):
             self.socket.close()
         self.savePushButton.setChecked(False)
         self.enable_ui_elements_on_connection(connected=False)
+        self.statusBar().showMessage("Disconnected.")
 
     def enable_ui_elements_on_connection(self, connected: bool):
         self.serialParametersFrame.setEnabled(not connected)
