@@ -318,14 +318,14 @@ class Ui(QtWidgets.QMainWindow):
     def on_dataFormatComboBox_currentIndexChanged(self, index):
         self.settings.setValue("ui/dataFormatIndex", index)
         binary = index == 0
-        self.binaryDtypeStringLineEdit.setVisible(binary)
-        self.binaryDtypeStringLabel.setVisible(binary)
-        self.numberOfStreamsLabel.setVisible(not binary)
-        self.numberOfStreamsSpinBox.setVisible(not binary)
-        self.binaryMessageDelimiterSpinBox.setVisible(binary)
-        self.binaryMessageDelimiterLabel.setVisible(binary)
-        self.asciiMessageDelimiterLineEdit.setVisible(not binary)
-        self.asciiMessageDelimiterLabel.setVisible(not binary)
+        self.binaryDtypeStringLineEdit.setEnabled(binary)
+        self.binaryDtypeStringLabel.setEnabled(binary)
+        self.numberOfStreamsLabel.setEnabled(not binary)
+        self.numberOfStreamsSpinBox.setEnabled(not binary)
+        self.binaryMessageDelimiterSpinBox.setEnabled(binary)
+        self.binaryMessageDelimiterLabel.setEnabled(binary)
+        self.asciiMessageDelimiterLineEdit.setEnabled(not binary)
+        self.asciiMessageDelimiterLabel.setEnabled(not binary)
 
         if self.stream_processor is not None:
             if binary:

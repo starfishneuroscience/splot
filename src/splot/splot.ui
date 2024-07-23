@@ -347,27 +347,30 @@
                 </widget>
                </item>
                <item row="1" column="0">
-                <widget class="QLabel" name="asciiMessageDelimiterLabel">
+                <widget class="QLabel" name="binaryMessageDelimiterLabel">
                  <property name="text">
-                  <string>ASCII separator</string>
+                  <string>Separator byte</string>
                  </property>
                 </widget>
                </item>
                <item row="1" column="1">
-                <widget class="QLineEdit" name="asciiMessageDelimiterLineEdit">
-                 <property name="text">
-                  <string>\n</string>
+                <widget class="QSpinBox" name="binaryMessageDelimiterSpinBox">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
                  </property>
                 </widget>
                </item>
-               <item row="3" column="0">
+               <item row="2" column="0">
                 <widget class="QLabel" name="binaryDtypeStringLabel">
                  <property name="text">
                   <string>Binary format</string>
                  </property>
                 </widget>
                </item>
-               <item row="3" column="1">
+               <item row="2" column="1">
                 <widget class="QLineEdit" name="binaryDtypeStringLineEdit">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -383,6 +386,20 @@
                  </property>
                  <property name="text">
                   <string>u1,u1,u2,u2,u2</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="asciiMessageDelimiterLabel">
+                 <property name="text">
+                  <string>ASCII separator</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QLineEdit" name="asciiMessageDelimiterLineEdit">
+                 <property name="text">
+                  <string>\n</string>
                  </property>
                 </widget>
                </item>
@@ -406,23 +423,6 @@
                  </property>
                  <property name="minimum">
                   <number>1</number>
-                 </property>
-                </widget>
-               </item>
-               <item row="2" column="0">
-                <widget class="QLabel" name="binaryMessageDelimiterLabel">
-                 <property name="text">
-                  <string>Separator byte</string>
-                 </property>
-                </widget>
-               </item>
-               <item row="2" column="1">
-                <widget class="QSpinBox" name="binaryMessageDelimiterSpinBox">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
                  </property>
                 </widget>
                </item>
