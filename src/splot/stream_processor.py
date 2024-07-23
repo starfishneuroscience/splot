@@ -40,18 +40,12 @@ class StreamProcessor:
         self.save_file = None  # handle to file for saving data
         self.csv_writer = None
 
+        self.plot_buffer = np.full((plot_buffer_length, 1), np.nan, dtype=float)
+
         if self.binary:
-            self.binary_dtype = np.dtype(binary_dtype_string)
-
-            num_streams = np.sum([1 if len(x) <= 2 else np.prod(x[2]) for x in self.binary_dtype.descr])
-            num_streams -= 1  # subtract one to ignore header byte
-            self.message_delimiter = int(message_delimiter) % 256
+            self.set_binary_mode(binary_dtype_string, message_delimiter)
         else:
-            num_streams = ascii_num_streams
-            # process escape characters correctly
-            self.message_delimiter = bytes(message_delimiter, "utf-8").decode("unicode_escape")
-
-        self.plot_buffer = np.full((plot_buffer_length, num_streams), np.nan, dtype=float)
+            self.set_ascii_mode(ascii_num_streams, message_delimiter)
 
         # compile regex to parse numbers out of arbitrary strings
         numeric_const_pattern = r"[-+]? (?: (?: \d* \. \d+ ) | (?: \d+ \.? ) )(?: [Ee] [+-]? \d+ ) ?"
@@ -61,15 +55,37 @@ class StreamProcessor:
         self.plot_buffer = np.full((size, self.plot_buffer.shape[1]), np.nan, dtype=float)
         self.write_ptr = 0
 
-    def change_binary_dtype(self, dtype_string):
+    def set_binary_dtype(self, binary_dtype_string):
+        if not self.binary:
+            return
+
         try:
-            dt = np.dtype(dtype_string)
+            self.binary_dtype = np.dtype(binary_dtype_string)
+            num_streams = np.sum([1 if len(x) <= 2 else np.prod(x[2]) for x in self.binary_dtype.descr])
+            num_streams -= 1  # subtract one to ignore header byte
             # changing dtype probably changes number of fields; wipe buffer and make it the right size
-            self.plot_buffer = np.full((self.plot_buffer.shape[0], len(dt) - 1), np.nan, dtype=float)
+            self.plot_buffer = np.full((self.plot_buffer.shape[0], num_streams), np.nan, dtype=float)
             self.write_ptr = 0
-            self.binary_dtype = dt
         except Exception as e:
-            logger.error(f'Failed to set binary data format "{dtype_string}".\n{e}')
+            logger.error(f'Failed to set binary data format "{binary_dtype_string}".\n{e}')
+
+    def set_message_delimiter(self, message_delimiter):
+        if self.binary:
+            self.message_delimiter = int(message_delimiter) % 256
+        else:
+            self.message_delimiter = bytes(message_delimiter, "utf-8").decode("unicode_escape")
+
+    def set_binary_mode(self, binary_dtype_string: str, message_delimiter: int):
+        self.binary = True
+        self.set_message_delimiter(message_delimiter)
+        self.set_binary_dtype(binary_dtype_string)
+
+    def set_ascii_mode(self, ascii_num_streams, message_delimiter: str):
+        self.binary = False
+        self.set_message_delimiter(message_delimiter)
+
+        self.plot_buffer = np.full((self.plot_buffer.shape[0], ascii_num_streams), np.nan, dtype=float)
+        self.write_ptr = 0
 
     def get_output_dimensions(self):
         return self.plot_buffer.shape
@@ -84,7 +100,13 @@ class StreamProcessor:
         num_bytes_read = len(new_data)
 
         if not self.binary:
-            new_data = new_data.tobytes().decode("ascii")
+            try:
+                new_data = new_data.tobytes().decode("ascii")
+            except Exception as e:
+                logger.error(f"Couldn't decode data as ascii, exception: {e}")
+                # update read pointer and ignore the data we couldn't decode
+                self.read_ptr = (self.read_ptr + num_bytes_read) % len(self.serial_receiver.ring_buffer)
+
             if self.message_delimiter not in new_data:
                 return
             messages = new_data.split(self.message_delimiter)
@@ -94,6 +116,7 @@ class StreamProcessor:
             num_bytes_read -= len(messages[-1])
             messages = messages[:-1]
 
+            bad_lengths = set()
             for message in messages:
                 if message == "":
                     continue
@@ -111,6 +134,14 @@ class StreamProcessor:
                     self.plot_buffer[self.write_ptr, : len(numbers)] = numbers
                     self.plot_buffer[self.write_ptr, len(numbers) :] = np.nan
                 self.write_ptr = (self.write_ptr + 1) % self.plot_buffer.shape[0]
+
+                if len(numbers) != self.plot_buffer.shape[1]:
+                    bad_lengths.add(len(numbers))
+
+            if len(bad_lengths):
+                logger.warning(
+                    f"Received messages containing {bad_lengths} fields; expected {self.plot_buffer.shape[1]}"
+                )
 
         elif self.binary:
             expected_length = self.binary_dtype.itemsize

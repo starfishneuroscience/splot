@@ -42,10 +42,9 @@ class Ui(QtWidgets.QMainWindow):
         self.socket = None  # keep these around to properly close them
         self.serial_connection = None
 
-        # timer to update plots at 30 Hz
+        # timer to update plots
         self.plot_timer = QtCore.QTimer()
         self.plot_timer.timeout.connect(self.update_stream_plots)
-        self.plot_timer.start(33)
 
         # set plot background and color based on system theme
         palette = QtWidgets.QApplication.palette()
@@ -96,7 +95,8 @@ class Ui(QtWidgets.QMainWindow):
             "ui/serialBufferSize": lambda x: self.serialBufferSizeSpinBox.setValue(int(x)),
             "ui/numberOfStreams": lambda x: self.numberOfStreamsSpinBox.setValue(int(x)),
             "ui/dataFormatIndex": lambda x: self.dataFormatComboBox.setCurrentIndex(int(x)),
-            "ui/messageDelimiter": self.messageDelimiterLineEdit.setText,
+            "ui/asciiMessageDelimiter": self.asciiMessageDelimiterLineEdit.setText,
+            "ui/binaryMessageDelimiter": lambda x: self.binaryMessageDelimiterSpinBox.setValue(int(x)),
             "ui/binaryDtypeString": self.binaryDtypeStringLineEdit.setText,
             "ui/plotLength": lambda x: self.plotLengthSpinBox.setValue(int(x)),
         }
@@ -141,11 +141,16 @@ class Ui(QtWidgets.QMainWindow):
             buffer_length=self.serialBufferSizeSpinBox.value(),
             read_chunk_size=self.serialReadChunkSizeSpinBox.value(),
         )
+        binary = self.dataFormatComboBox.currentText() == "binary"
+        if binary:
+            delimiter = self.binaryMessageDelimiterSpinBox.value()
+        else:
+            delimiter = self.asciiMessageDelimiterLineEdit.text()
         self.stream_processor = StreamProcessor(
             serial_receiver=self.serial_receiver,
             plot_buffer_length=self.plotLengthSpinBox.value(),
-            message_delimiter=self.messageDelimiterLineEdit.text(),
-            binary=(self.dataFormatComboBox.currentText() == "binary"),
+            message_delimiter=delimiter,
+            binary=binary,
             binary_dtype_string=self.binaryDtypeStringLineEdit.text(),
             ascii_num_streams=self.numberOfStreamsSpinBox.value(),
             paused=self.pausePushButton.isChecked(),
@@ -155,16 +160,24 @@ class Ui(QtWidgets.QMainWindow):
         self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
         self.serial_receiver.start()
         self.enable_ui_elements_on_connection(connected=True)
+        self.plot_timer.start(33)
 
     def disconnect_from_serial(self):
+        self.plot_timer.stop()
+        if self.stream_processor is not None:
+            self.stream_processor = None
+
         if self.serial_receiver is not None:
             self.serial_receiver.stop()
             self.serial_receiver.wait()
             self.serial_receiver.disconnect()  # disconnect all slots
             self.serial_receiver = None
+
+        if self.serial_connection is not None:
             self.serial_connection.close()
         if self.socket is not None:
             self.socket.close()
+
         self.savePushButton.setChecked(False)
         self.enable_ui_elements_on_connection(connected=False)
         self.statusBar().showMessage("Disconnected.")
@@ -235,8 +248,9 @@ class Ui(QtWidgets.QMainWindow):
 
         if not all(np.isnan(dat)) and np.nanmax(dat) > 0 and np.isfinite(np.nanmax(dat)):
             max_bit_index = int(np.log2(np.nanmax(dat)) + 1)
+
         else:
-            max_bit_index = 8
+            max_bit_index = 7
 
         # analyze only non-zero indices for speed (sparsity assumption)
         non_zero_indices = np.where(dat > 0)[0]
@@ -248,8 +262,8 @@ class Ui(QtWidgets.QMainWindow):
             y.append(np.tile([bit_index - 0.4, bit_index + 0.4], len(ind)))
 
         # add horizontal lines for each bit (so that all less-significant bits will still get plotted)
-        x.append(np.tile([0, len(dat)], max_bit_index))
-        y.append(np.concatenate([[i, i] for i in range(max_bit_index)]))
+        x.append(np.tile([0, len(dat)], max_bit_index + 1))
+        y.append(np.concatenate([[i, i] for i in range(max_bit_index + 1)]))
 
         x = np.concatenate(x)
         y = np.concatenate(y)
@@ -304,22 +318,60 @@ class Ui(QtWidgets.QMainWindow):
     def on_dataFormatComboBox_currentIndexChanged(self, index):
         self.settings.setValue("ui/dataFormatIndex", index)
         binary = index == 0
-        self.binaryDtypeStringLineEdit.setVisible(binary)
-        self.binaryDtypeStringLabel.setVisible(binary)
-        self.numberOfStreamsLabel.setVisible(not binary)
-        self.numberOfStreamsSpinBox.setVisible(not binary)
+        self.binaryDtypeStringLineEdit.setEnabled(binary)
+        self.binaryDtypeStringLabel.setEnabled(binary)
+        self.numberOfStreamsLabel.setEnabled(not binary)
+        self.numberOfStreamsSpinBox.setEnabled(not binary)
+        self.binaryMessageDelimiterSpinBox.setEnabled(binary)
+        self.binaryMessageDelimiterLabel.setEnabled(binary)
+        self.asciiMessageDelimiterLineEdit.setEnabled(not binary)
+        self.asciiMessageDelimiterLabel.setEnabled(not binary)
 
-    @QtCore.pyqtSlot(str)
-    def on_messageDelimiterLineEdit_textEdited(self, value):
-        self.settings.setValue("ui/messageDelimiter", value)
+        if self.stream_processor is not None:
+            if binary:
+                self.stream_processor.set_binary_mode(
+                    binary_dtype_string=self.binaryDtypeStringLineEdit.text(),
+                    message_delimiter=self.binaryMessageDelimiterSpinBox.value(),
+                )
+            else:
+                self.stream_processor.set_ascii_mode(
+                    ascii_num_streams=self.numberOfStreamsSpinBox.value(),
+                    message_delimiter=self.asciiMessageDelimiterLineEdit.text(),
+                )
+            self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
 
-    @QtCore.pyqtSlot(str)
-    def on_binaryDtypeStringLineEdit_textEdited(self, value):
+    @QtCore.pyqtSlot()
+    def on_asciiMessageDelimiterLineEdit_editingFinished(self):
+        value = self.asciiMessageDelimiterLineEdit.text()
+        self.settings.setValue("ui/asciiMessageDelimiter", value)
+        if self.stream_processor is not None:
+            self.stream_processor.set_message_delimiter(value)
+
+    @QtCore.pyqtSlot(int)
+    def on_binaryMessageDelimiterSpinBox_valueChanged(self, value):
+        self.settings.setValue("ui/binaryMessageDelimiter", value)
+        if self.stream_processor is not None:
+            self.stream_processor.set_message_delimiter(value)
+
+    @QtCore.pyqtSlot()
+    def on_binaryDtypeStringLineEdit_editingFinished(self):
+        value = self.binaryDtypeStringLineEdit.text()
         self.settings.setValue("ui/binaryDtypeString", value)
+        if self.stream_processor is not None:
+            self.stream_processor.set_binary_dtype(value)
+            # we may have changed the number of plots, so re-create the plot series
+            self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
 
     @QtCore.pyqtSlot(int)
     def on_numberOfStreamsSpinBox_valueChanged(self, value):
         self.settings.setValue("ui/numberOfStreams", value)
+        if self.stream_processor is not None:
+            self.stream_processor.set_ascii_mode(
+                ascii_num_streams=value,
+                message_delimiter=self.asciiMessageDelimiterLineEdit.text(),
+            )
+            # we may have changed the number of plots, so re-create the plot series
+            self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
 
     @QtCore.pyqtSlot(int)
     def on_seriesSelectorSpinBox_valueChanged(self, series_index):
@@ -406,9 +458,9 @@ class Ui(QtWidgets.QMainWindow):
         if self.stream_processor is not None:
             self.stream_processor.paused = checked
         if checked:
-            self.plot_timer.timeout.disconnect(self.update_stream_plots)
+            self.plot_timer.stop()
         else:
-            self.plot_timer.timeout.connect(self.update_stream_plots)
+            self.plot_timer.start(33)
 
 
 def main():

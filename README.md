@@ -36,10 +36,6 @@ arr, series_names = splot.read_serial_capture_binary(
 
 When receiving ascii data, splot simply records it as a csv file.
 
-## To-do and possible future directions
-### To-do
-- Changing data formats doesnt work while connected, it only takes effect when upon connection. Fix this.
-
 ### Possible future directions
 - Development:
     - Implementing a good test infrastructure for automated testing (possibly in CI)
@@ -68,6 +64,8 @@ There are a number of similar projects out there from which splot takes inspirat
  - https://github.com/hacknus/serial-monitor-rust
 
 ## Changelog:
+- PR #14:
+    - Changing data formats didn't work while connected, but works now.
 - PR #8:
     - enable saving data
     - revert to same color on all plots
