@@ -100,7 +100,13 @@ class StreamProcessor:
         num_bytes_read = len(new_data)
 
         if not self.binary:
-            new_data = new_data.tobytes().decode("ascii")
+            try:
+                new_data = new_data.tobytes().decode("ascii")
+            except Exception as e:
+                logger.error(f"Couldn't decode data as ascii, exception: {e}")
+                # update read pointer and ignore the data we couldn't decode
+                self.read_ptr = (self.read_ptr + num_bytes_read) % len(self.serial_receiver.ring_buffer)
+
             if self.message_delimiter not in new_data:
                 return
             messages = new_data.split(self.message_delimiter)
@@ -110,6 +116,7 @@ class StreamProcessor:
             num_bytes_read -= len(messages[-1])
             messages = messages[:-1]
 
+            bad_lengths = set()
             for message in messages:
                 if message == "":
                     continue
@@ -127,6 +134,14 @@ class StreamProcessor:
                     self.plot_buffer[self.write_ptr, : len(numbers)] = numbers
                     self.plot_buffer[self.write_ptr, len(numbers) :] = np.nan
                 self.write_ptr = (self.write_ptr + 1) % self.plot_buffer.shape[0]
+
+                if len(numbers) != self.plot_buffer.shape[1]:
+                    bad_lengths.add(len(numbers))
+
+            if len(bad_lengths):
+                logger.warning(
+                    f"Received messages containing {bad_lengths} fields; expected {self.plot_buffer.shape[1]}"
+                )
 
         elif self.binary:
             expected_length = self.binary_dtype.itemsize
