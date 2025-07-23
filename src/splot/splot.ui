@@ -361,6 +361,9 @@
                    <verstretch>0</verstretch>
                   </sizepolicy>
                  </property>
+                 <property name="maximum">
+                  <number>255</number>
+                 </property>
                 </widget>
                </item>
                <item row="2" column="0">
@@ -664,7 +667,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QFrame" name="verticalFrame">
+          <widget class="QFrame" name="rightFrame">
            <property name="frameShape">
             <enum>QFrame::StyledPanel</enum>
            </property>
