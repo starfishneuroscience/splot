@@ -457,6 +457,14 @@ class Ui(QtWidgets.QMainWindow):
                 self.save_file.close()
                 self.save_file = None
 
+    @QtCore.pyqtSlot(int)
+    def on_receiveDataPortSpinBox_valueChanged(self, value):
+        self.settings.setValue("ui/zmqReceiveDataPort", value)
+
+    @QtCore.pyqtSlot(int)
+    def on_emitDataPortSpinBox_valueChanged(self, value):
+        self.settings.setValue("ui/zmqEmitDataPort", value)
+
     @QtCore.pyqtSlot(bool)
     def on_emitDataCheckBox_clicked(self, checked):
         self.emitDataPortSpinBox.setEnabled(not checked)
