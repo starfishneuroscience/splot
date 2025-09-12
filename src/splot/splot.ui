@@ -361,6 +361,9 @@
                    <verstretch>0</verstretch>
                   </sizepolicy>
                  </property>
+                 <property name="maximum">
+                  <number>255</number>
+                 </property>
                 </widget>
                </item>
                <item row="2" column="0">
@@ -605,6 +608,9 @@
                  <property name="buttonSymbols">
                   <enum>QAbstractSpinBox::NoButtons</enum>
                  </property>
+                 <property name="keyboardTracking">
+                  <bool>false</bool>
+                 </property>
                  <property name="maximum">
                   <number>65535</number>
                  </property>
@@ -630,6 +636,9 @@
                  </property>
                  <property name="buttonSymbols">
                   <enum>QAbstractSpinBox::NoButtons</enum>
+                 </property>
+                 <property name="keyboardTracking">
+                  <bool>false</bool>
                  </property>
                  <property name="maximum">
                   <number>65535</number>
@@ -723,7 +732,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QFrame" name="verticalFrame">
+          <widget class="QFrame" name="rightFrame">
            <property name="frameShape">
             <enum>QFrame::StyledPanel</enum>
            </property>

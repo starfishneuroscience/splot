@@ -104,6 +104,8 @@ class Ui(QtWidgets.QMainWindow):
             "ui/binaryMessageDelimiter": lambda x: self.binaryMessageDelimiterSpinBox.setValue(int(x)),
             "ui/binaryDtypeString": self.binaryDtypeStringLineEdit.setText,
             "ui/plotLength": lambda x: self.plotLengthSpinBox.setValue(int(x)),
+            "ui/zmqReceiveDataPort": lambda x: self.receiveDataPortSpinBox.setValue(int(x)),
+            "ui/zmqEmitDataPort": lambda x: self.emitDataPortSpinBox.setValue(int(x)),
         }
         for key, set_function in settings_map.items():
             value = self.settings.value(key)
@@ -452,6 +454,14 @@ class Ui(QtWidgets.QMainWindow):
                 self.stream_processor.save_file = None
                 self.save_file.close()
                 self.save_file = None
+
+    @QtCore.pyqtSlot(int)
+    def on_receiveDataPortSpinBox_valueChanged(self, value):
+        self.settings.setValue("ui/zmqReceiveDataPort", value)
+
+    @QtCore.pyqtSlot(int)
+    def on_emitDataPortSpinBox_valueChanged(self, value):
+        self.settings.setValue("ui/zmqEmitDataPort", value)
 
     @QtCore.pyqtSlot(bool)
     def on_emitDataCheckBox_clicked(self, checked):
