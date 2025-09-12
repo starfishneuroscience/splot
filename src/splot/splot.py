@@ -473,7 +473,7 @@ class Ui(QtWidgets.QMainWindow):
             # pass conn to serial receiver
             if self.serial_receiver:
                 self.serial_receiver.forward_conn = conn
-        if not checked:
+        elif not checked:
             if self.serial_receiver:
                 self.serial_receiver.forward_conn = None
 
@@ -497,7 +497,7 @@ class Ui(QtWidgets.QMainWindow):
             self.zmq_listener_thread = threading.Thread(target=self.zmq_listener_loop, args=(conn,))
             self.zmq_listener_thread.start()
 
-        if not checked:
+        elif not checked:
             # tear down listener loop thread if it exists
             self.zmq_listener_loop_running = False
             if self.zmq_listener_thread:
