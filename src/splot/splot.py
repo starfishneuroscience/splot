@@ -79,6 +79,7 @@ class Ui(QtWidgets.QMainWindow):
 
         self.zmq_listener_thread = None
         self.zmq_listener_loop_running = False
+        self.zmq_emitter_conn = None
 
     def populate_serial_options(self):
         option_map = {
@@ -148,6 +149,7 @@ class Ui(QtWidgets.QMainWindow):
             read_function=read_function,
             buffer_length=self.serialBufferSizeSpinBox.value(),
             read_chunk_size=self.serialReadChunkSizeSpinBox.value(),
+            forward_conn=self.zmq_emitter_conn,
         )
         binary = self.dataFormatComboBox.currentText() == "binary"
         if binary:
@@ -468,11 +470,11 @@ class Ui(QtWidgets.QMainWindow):
         self.emitDataPortSpinBox.setEnabled(not checked)
         if checked:
             port = self.emitDataPortSpinBox.value()
-            conn = zmq.Context().socket(zmq.PUB)
-            conn.bind(f"tcp://*:{port}")
+            self.zmq_emitter_conn = zmq.Context().socket(zmq.PUB)
+            self.zmq_emitter_conn.bind(f"tcp://*:{port}")
             # pass conn to serial receiver
             if self.serial_receiver:
-                self.serial_receiver.forward_conn = conn
+                self.serial_receiver.forward_conn = self.zmq_emitter_conn
         elif not checked:
             if self.serial_receiver:
                 self.serial_receiver.forward_conn = None
