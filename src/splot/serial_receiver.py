@@ -15,7 +15,7 @@ class SerialReceiver(QtCore.QThread):
     data_received = QtCore.pyqtSignal()
     data_rate = QtCore.pyqtSignal(int)  # emitted every second
 
-    def __init__(self, read_function, buffer_length, read_chunk_size):
+    def __init__(self, read_function, buffer_length, read_chunk_size, forward_conn=None):
         # read_function must take an argument for the number of bytes to read
         super().__init__()
         self.running = False
@@ -24,6 +24,9 @@ class SerialReceiver(QtCore.QThread):
 
         self.ring_buffer = np.empty((buffer_length,), dtype="B")
         self.write_ptr = 0
+
+        # can use this field to forward data to another connection/socket. must have a `write` method.
+        self.forward_conn = forward_conn
 
     def stop(self):
         self.running = False
@@ -44,6 +47,9 @@ class SerialReceiver(QtCore.QThread):
                 break
 
             if len(read):
+                if self.forward_conn is not None:
+                    self.forward_conn.write(read)
+
                 bytes_in_last_second += len(read)
                 new_data = np.frombuffer(read, dtype="B")
 
