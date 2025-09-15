@@ -36,12 +36,22 @@ arr, series_names = splot.read_serial_capture_binary(
 
 When receiving ascii data, splot simply records it as a csv file.
 
+Sometimes it is important that received data be timestamped upon receipt. splot also includes an option for this, in which messages will be prepended with a timestamp in epoch time, in usec. For ascii data, this will simply be the first data column; for binary data, it will be the first 8 bytes of each message (uint64).
+
 ### Possible future directions
 - Development:
     - Implementing a good test infrastructure for automated testing (possibly in CI)
 - UI:
     - switch between stacked plots and single plot with overlaid series
+- Serial interface:
+    - Serial transmit functionality
+- Interface:
+    - ZMQ-b
 - Data processing:
+    - timestamping received data
+        - recording timestamps of received messages to csv file when in ascii mode
+        - recording timestamps of received messages to csv file when in binary mode
+        - plotting with timestamp as x-axis
     - filters and averaging of signals (averaging is actually built into pyqtgraph; right click on a plot!)
     - Oscilloscope mode / triggered plotting
     - Error detection:
@@ -53,8 +63,6 @@ When receiving ascii data, splot simply records it as a csv file.
     - handle uart with different frame sizes (e.g., 9- or 10-bit frames)
     - handle other serialization formats, e.g. JSON or protobuf
     - long vs wide data formats
-- Serial interface:
-    - Serial send functionality (possibly out of scope?)
 
 ## Similar projects
 There are a number of similar projects out there from which splot takes inspiration, for example:

@@ -1,4 +1,5 @@
 import logging
+import time
 import re
 
 import numpy as np
@@ -22,6 +23,7 @@ class StreamProcessor:
         binary: bool,
         binary_dtype_string: str,
         ascii_num_streams: int,
+        add_timestamp: bool,
         paused: bool = False,
     ):
         # future parameters: long_or_wide,
@@ -32,6 +34,7 @@ class StreamProcessor:
 
         self.binary = binary
         self.binary_dtype = None
+        self.add_timestamp = add_timestamp
 
         self.read_ptr = 0  # read pointer for *SerialReceiver* ringbuffer
 
@@ -99,6 +102,8 @@ class StreamProcessor:
         new_data = self.serial_receiver.get_new_data(self.read_ptr)
         num_bytes_read = len(new_data)
 
+        timestamp = time.time_ns() // 1e3
+
         if not self.binary:
             try:
                 new_data = new_data.tobytes().decode("ascii")
@@ -122,11 +127,13 @@ class StreamProcessor:
                     continue
                 numbers = self.numeric_rx.findall(message)
                 numbers = np.array(numbers, dtype=float)
-                logger.debug(f"parsed {message=} to {numbers=}")
 
                 # if we're saving to file, dump new data to file here
                 if self.save_file is not None:
-                    self.save_file.write(",".join(numbers.astype(str)) + "\n")
+                    line = ",".join(numbers.astype(str)) + "\n"
+                    if self.add_timestamp:
+                        line = str(timestamp) + "," + line
+                    self.save_file.write(line)
 
                 if len(numbers) >= self.plot_buffer.shape[1]:
                     self.plot_buffer[self.write_ptr] = numbers[: self.plot_buffer.shape[1]]

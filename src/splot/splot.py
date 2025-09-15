@@ -24,6 +24,40 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(m
 logger = logging.getLogger(__name__)
 
 
+def vector_to_bit_raster(dat: np.ndarray[int], max_bit_index: int = None):
+    """Take a vector of integers and return plotting vectors x and y.
+    :returns: vectors x and y such that plotting x vs y yields vertical line segments
+        at each index when a given bit is 1. E.g., if dat[3] == 5, then x and y will
+        include two line segments at x=3 around y=0 and y=2. Each pair of points is
+        separated by one nan entry (to ensure plotting as isolated line segments).
+    """
+    x = []
+    y = []
+
+    if max_bit_index is None:
+        if not all(np.isnan(dat)) and np.nanmax(dat) > 0 and np.isfinite(np.nanmax(dat)):
+            max_bit_index = int(np.ceil(np.log2(np.nanmax(dat))))
+        else:
+            max_bit_index = 7
+
+    # analyze only non-zero indices for speed (sparsity assumption)
+    non_zero_indices = np.where(dat > 0)[0]
+
+    # go through each bit up to max_bit_value and add vertical lines of height 0.8 at each x position
+    for bit_index in range(max_bit_index):
+        ind = np.where(dat[non_zero_indices].astype(int) & (1 << bit_index))[0]
+        x.append(np.repeat(non_zero_indices[ind], 2))
+        y.append(np.tile([bit_index - 0.4, bit_index + 0.4], len(ind)))
+
+    # add horizontal lines for each bit (so that all less-significant bits will still get plotted)
+    x.append(np.tile([0, len(dat)], max_bit_index + 1))
+    y.append(np.concatenate([[i, i] for i in range(max_bit_index + 1)]))
+
+    x = np.concatenate(x)
+    y = np.concatenate(y)
+    return x, y
+
+
 class Ui(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
@@ -163,6 +197,7 @@ class Ui(QtWidgets.QMainWindow):
             binary=binary,
             binary_dtype_string=self.binaryDtypeStringLineEdit.text(),
             ascii_num_streams=self.numberOfStreamsSpinBox.value(),
+            add_timestamp=self.addTimestampCheckBox.isChecked(),
             paused=self.pausePushButton.isChecked(),
         )
         self.serial_receiver.data_received.connect(self.stream_processor.process_new_data)
@@ -252,33 +287,6 @@ class Ui(QtWidgets.QMainWindow):
         # set initial UI elements to correct values
         self.on_seriesSelectorSpinBox_valueChanged(0)
 
-    def vector_to_bit_raster(self, dat):
-        x = []
-        y = []
-
-        if not all(np.isnan(dat)) and np.nanmax(dat) > 0 and np.isfinite(np.nanmax(dat)):
-            max_bit_index = int(np.log2(np.nanmax(dat)) + 1)
-
-        else:
-            max_bit_index = 7
-
-        # analyze only non-zero indices for speed (sparsity assumption)
-        non_zero_indices = np.where(dat > 0)[0]
-
-        # go through each bit up to max_bit_value and add vertical lines of height 0.8 at each x position
-        for bit_index in range(max_bit_index):
-            ind = np.where(dat[non_zero_indices].astype(int) & (1 << bit_index))[0]
-            x.append(np.repeat(non_zero_indices[ind], 2))
-            y.append(np.tile([bit_index - 0.4, bit_index + 0.4], len(ind)))
-
-        # add horizontal lines for each bit (so that all less-significant bits will still get plotted)
-        x.append(np.tile([0, len(dat)], max_bit_index + 1))
-        y.append(np.concatenate([[i, i] for i in range(max_bit_index + 1)]))
-
-        x = np.concatenate(x)
-        y = np.concatenate(y)
-        return x, y
-
     def update_stream_plots(self):
         for i, plot in enumerate(self.plots):
             series = plot.listDataItems()[0]
@@ -288,7 +296,7 @@ class Ui(QtWidgets.QMainWindow):
 
             if self.plot_types[i] == 1:  # raster
                 # convert data to raster (series of line segments)
-                x, y = self.vector_to_bit_raster(dat)
+                x, y = vector_to_bit_raster(dat)
                 series.setData(x, y, connect="pairs")
             else:
                 dat[j] = np.nan  # force plotting break
