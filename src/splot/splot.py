@@ -185,11 +185,30 @@ class Ui(QtWidgets.QMainWindow):
             read_chunk_size=self.serialReadChunkSizeSpinBox.value(),
             forward_conn=self.zmq_emitter_conn,
         )
+        self.serial_receiver.data_rate.connect(lambda x: self.statusBar().showMessage(f"Data rate: {x} bytes/sec"))
+
+        self.initialize_stream_processor()
+
+        self.serial_receiver.start()
+        self.enable_ui_elements_on_connection(connected=True)
+        self.plot_timer.start(33)
+
+    def initialize_stream_processor(self):
+        """Create a new StreamProcessor based on the current UI settings.
+
+        Also triggers creating a new plot series.
+        """
+        if self.serial_receiver is None:
+            # stream processor doesn't do anything unless we're connected, and will
+            # be instantiated upon connection in `connect_to_serial()`
+            return
+
         binary = self.dataFormatComboBox.currentText() == "binary"
         if binary:
             delimiter = self.binaryMessageDelimiterSpinBox.value()
         else:
             delimiter = self.asciiMessageDelimiterLineEdit.text()
+
         self.stream_processor = StreamProcessor(
             serial_receiver=self.serial_receiver,
             plot_buffer_length=self.plotLengthSpinBox.value(),
@@ -200,12 +219,10 @@ class Ui(QtWidgets.QMainWindow):
             add_timestamp=self.addTimestampCheckBox.isChecked(),
             paused=self.pausePushButton.isChecked(),
         )
+
         self.serial_receiver.data_received.connect(self.stream_processor.process_new_data)
-        self.serial_receiver.data_rate.connect(lambda x: self.statusBar().showMessage(f"Data rate: {x} bytes/sec"))
+
         self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
-        self.serial_receiver.start()
-        self.enable_ui_elements_on_connection(connected=True)
-        self.plot_timer.start(33)
 
     def disconnect_from_serial(self):
         self.plot_timer.stop()
@@ -362,34 +379,28 @@ class Ui(QtWidgets.QMainWindow):
     def on_asciiMessageDelimiterLineEdit_editingFinished(self):
         value = self.asciiMessageDelimiterLineEdit.text()
         self.settings.setValue("ui/asciiMessageDelimiter", value)
-        if self.stream_processor is not None:
-            self.stream_processor.set_message_delimiter(value)
+        self.initialize_stream_processor()
 
     @QtCore.pyqtSlot(int)
     def on_binaryMessageDelimiterSpinBox_valueChanged(self, value):
         self.settings.setValue("ui/binaryMessageDelimiter", value)
-        if self.stream_processor is not None:
-            self.stream_processor.set_message_delimiter(value)
+        self.initialize_stream_processor()
 
     @QtCore.pyqtSlot()
     def on_binaryDtypeStringLineEdit_editingFinished(self):
         value = self.binaryDtypeStringLineEdit.text()
         self.settings.setValue("ui/binaryDtypeString", value)
-        if self.stream_processor is not None:
-            self.stream_processor.set_binary_dtype(value)
-            # we may have changed the number of plots, so re-create the plot series
-            self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
+        self.initialize_stream_processor()
 
     @QtCore.pyqtSlot(int)
     def on_numberOfStreamsSpinBox_valueChanged(self, value):
         self.settings.setValue("ui/numberOfStreams", value)
-        if self.stream_processor is not None:
-            self.stream_processor.set_ascii_mode(
-                ascii_num_streams=value,
-                message_delimiter=self.asciiMessageDelimiterLineEdit.text(),
-            )
-            # we may have changed the number of plots, so re-create the plot series
-            self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
+        self.initialize_stream_processor()
+
+    @QtCore.pyqtSlot(bool)
+    def on_addTimestampCheckBox_clicked(self, checked):
+        self.settings.setValue("ui/addTimestamp", checked)
+        self.initialize_stream_processor()
 
     @QtCore.pyqtSlot(int)
     def on_seriesSelectorSpinBox_valueChanged(self, series_index):
