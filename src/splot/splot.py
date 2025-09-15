@@ -475,65 +475,6 @@ class Ui(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(bool)
     def on_emitDataCheckBox_clicked(self, checked):
-        self.emitDataPortSpinBox.setEnabled(not checked)
-        if checked:
-            port = self.emitDataPortSpinBox.value()
-            conn = zmq.Context().socket(zmq.PUB)
-            conn.bind(f"tcp://*:{port}")
-            # pass conn to serial receiver
-            if self.serial_receiver:
-                self.serial_receiver.forward_conn = conn
-        elif not checked:
-            if self.serial_receiver:
-                self.serial_receiver.forward_conn = None
-
-    @QtCore.pyqtSlot(bool)
-    def on_receiveDataCheckBox_clicked(self, checked):
-        if checked:
-            try:
-                port = self.receiveDataPortSpinBox.value()
-                conn = zmq.Context().socket(zmq.SUB)
-                conn.bind(f"tcp://*:{port}")
-                conn.setsockopt(zmq.RCVTIMEO, 100)  # set 100ms timeout
-                conn.subscribe(b"")
-                self.receiveDataPortSpinBox.setEnabled(False)
-                logger.info(f"Now receiving data on port {port}, will be forwarded to serial connection")
-            except Exception:
-                logger.error(f"Unable to bind port {port} to for receiving outgoing serial data.")
-                self.receiveDataCheckBox.setChecked(False)
-                return
-
-            # start listener loop
-            self.zmq_listener_thread = threading.Thread(target=self.zmq_listener_loop, args=(conn,))
-            self.zmq_listener_thread.start()
-
-        elif not checked:
-            # tear down listener loop thread if it exists
-            self.zmq_listener_loop_running = False
-            if self.zmq_listener_thread:
-                self.zmq_listener_thread.join()
-            self.receiveDataPortSpinBox.setEnabled(True)
-
-    def zmq_listener_loop(self, conn):
-        self.zmq_listener_loop_running = True
-        while self.zmq_listener_loop_running:
-            try:
-                data = conn.recv()
-            except zmq.ZMQError:
-                continue
-            if self.serial_connection:
-                self.serial_connection.write(data)
-
-    @QtCore.pyqtSlot(int)
-    def on_receiveDataPortSpinBox_valueChanged(self, value):
-        self.settings.setValue("ui/zmqReceiveDataPort", value)
-
-    @QtCore.pyqtSlot(int)
-    def on_emitDataPortSpinBox_valueChanged(self, value):
-        self.settings.setValue("ui/zmqEmitDataPort", value)
-
-    @QtCore.pyqtSlot(bool)
-    def on_emitDataCheckBox_clicked(self, checked):
         if checked:
             port = self.emitDataPortSpinBox.value()
             try:
