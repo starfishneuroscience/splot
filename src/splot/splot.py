@@ -467,15 +467,24 @@ class Ui(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(bool)
     def on_emitDataCheckBox_clicked(self, checked):
-        self.emitDataPortSpinBox.setEnabled(not checked)
         if checked:
             port = self.emitDataPortSpinBox.value()
-            self.zmq_emitter_conn = zmq.Context().socket(zmq.PUB)
-            self.zmq_emitter_conn.bind(f"tcp://*:{port}")
+            try:
+                self.zmq_emitter_conn = zmq.Context().socket(zmq.PUB)
+                self.zmq_emitter_conn.bind(f"tcp://*:{port}")
+                self.emitDataPortSpinBox.setEnabled(False)
+            except zmq.ZMQError:
+                logger.error(f"Unable to bind port {port} for publishing serial data.")
+                self.emitDataCheckBox.setChecked(False)
+                return
+
             # pass conn to serial receiver
             if self.serial_receiver:
                 self.serial_receiver.forward_conn = self.zmq_emitter_conn
+
         elif not checked:
+            if self.zmq_emitter_conn:
+                self.zmq_emitter_conn.close()
             if self.serial_receiver:
                 self.serial_receiver.forward_conn = None
 
@@ -491,7 +500,7 @@ class Ui(QtWidgets.QMainWindow):
                 self.receiveDataPortSpinBox.setEnabled(False)
                 logger.info(f"Now receiving data on port {port}, will be forwarded to serial connection")
             except Exception:
-                logger.error(f"Unable to bind port {port} to for receiving outgoing serial data.")
+                logger.error(f"Unable to bind port {port} for receiving data to forward to serial.")
                 self.receiveDataCheckBox.setChecked(False)
                 return
 
