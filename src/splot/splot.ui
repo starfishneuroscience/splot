@@ -441,20 +441,7 @@
                <enum>QFrame::Raised</enum>
               </property>
               <layout class="QGridLayout" name="gridLayout_2">
-               <item row="0" column="0" colspan="2">
-                <widget class="QPushButton" name="setSaveLocationPushButton">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="text">
-                  <string>Set save loc.</string>
-                 </property>
-                </widget>
-               </item>
-               <item row="0" column="2">
+               <item row="4" column="0" colspan="2">
                 <widget class="QPushButton" name="savePushButton">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -471,16 +458,29 @@
                 </widget>
                </item>
                <item row="1" column="0">
-                <widget class="QLabel" name="saveToLabel">
+                <widget class="QPushButton" name="setSaveLocationPushButton">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
                  <property name="text">
-                  <string>Save to:</string>
+                  <string>Set folder</string>
                  </property>
                 </widget>
                </item>
-               <item row="1" column="1" colspan="2">
+               <item row="1" column="1">
+                <widget class="QCheckBox" name="saveTimestampsCheckBox">
+                 <property name="text">
+                  <string>Save timestamps</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0" colspan="2">
                 <widget class="QLabel" name="saveLocationLabel">
                  <property name="text">
-                  <string>(None)</string>
+                  <string>(save location not set)</string>
                  </property>
                 </widget>
                </item>

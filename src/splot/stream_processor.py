@@ -1,3 +1,6 @@
+import csv
+import datetime
+import json
 import logging
 import re
 import time
@@ -36,6 +39,7 @@ class StreamProcessor:
         self.binary_dtype = None
         self.ascii_num_streams = ascii_num_streams
 
+        self.save_timestamps = False
         self.read_ptr = 0  # read pointer for *SerialReceiver* ringbuffer
 
         self.save_file = None  # handle to file for saving data
@@ -68,6 +72,33 @@ class StreamProcessor:
 
     def get_num_streams(self):
         return len(self.binary_dtype) if self.binary else self.ascii_num_streams
+
+    def start_saving(self, save_location: str, save_timestamps: bool, series_names: list[str]) -> None:
+        # start recording data
+        filename = datetime.datetime.now().strftime("serialcapture_%Y-%m-%d_%H-%M-%S")
+        full_path = save_location + "/" + filename + (".bin" if self.binary else ".csv")
+
+        self.save_timestamps = save_timestamps
+        self.save_file = open(full_path, "wb" if self.binary else "w")
+
+        # write headers
+        if self.binary:
+            header = {
+                "dtype": self.complete_message_dtype.descr if self.save_timestamps else self.binary_dtype.descr,
+                "series_names": series_names,
+            }
+            byte_str = bytes(json.dumps(header), "utf-8")
+            self.save_file.write(byte_str)
+        else:
+            writer = csv.writer(self.save_file)
+            writer.writerow(series_names + (["timestamp_usec"] if save_timestamps else []))
+
+        return full_path
+
+    def stop_saving(self) -> None:
+        if self.save_file:
+            self.save_file.close()
+            self.save_file = None
 
     def process_new_data(self):
         """This slot should be connected to serial_receiver's data_received signal."""

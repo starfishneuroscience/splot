@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-import csv
-import datetime
 import importlib.resources
-import json
 import logging
 from pathlib import Path
 import re
@@ -127,7 +124,6 @@ class Ui(QtWidgets.QMainWindow):
         self.enable_ui_elements_on_connection(connected=False)
 
         self.saveLocationLabel.setText(str(Path.home()))
-        self.save_file = None
 
         self.zmq_listener_thread = None
         self.zmq_listener_loop_running = False
@@ -381,19 +377,7 @@ class Ui(QtWidgets.QMainWindow):
         self.binaryMessageDelimiterLabel.setEnabled(binary)
         self.asciiMessageDelimiterLineEdit.setEnabled(not binary)
         self.asciiMessageDelimiterLabel.setEnabled(not binary)
-
-        if self.stream_processor is not None:
-            if binary:
-                self.stream_processor.set_binary_mode(
-                    binary_dtype_string=self.binaryDtypeStringLineEdit.text(),
-                    message_delimiter=self.binaryMessageDelimiterSpinBox.value(),
-                )
-            else:
-                self.stream_processor.set_ascii_mode(
-                    ascii_num_streams=self.numberOfStreamsSpinBox.value(),
-                    message_delimiter=self.asciiMessageDelimiterLineEdit.text(),
-                )
-            self.create_plot_series(num_streams=self.stream_processor.get_num_streams())
+        self.initialize_stream_processor()
 
     @QtCore.pyqtSlot()
     def on_asciiMessageDelimiterLineEdit_editingFinished(self):
@@ -456,40 +440,25 @@ class Ui(QtWidgets.QMainWindow):
         # note: toggled signal will be called regardless of whether user clicks or if
         #   we programmatically change the state of the button.
         if checked:
-            # start recording data
-            filename = datetime.datetime.now().strftime("serialcapture_%Y-%m-%d_%H-%M-%S")
-            full_path = self.saveLocationLabel.text() + "/" + filename
-            full_path += ".bin" if self.stream_processor.binary else ".csv"
-            logger.info(f"Creating file for saving data: {full_path}")
-
             series_names = [plot.getAxis("left").labelText for plot in self.plots]
-
-            if self.stream_processor.binary:
-                self.save_file = open(full_path, "wb")
-                # write json header
-
-                header = {"dtype_string": self.binaryDtypeStringLineEdit.text(), "series_names": series_names}
-                byte_str = bytes(json.dumps(header), "utf-8")
-                self.save_file.write(byte_str)
-
-            else:  # ascii data, write csv header
-                self.save_file = open(full_path, "w")
-                writer = csv.writer(self.save_file)
-                writer.writerow(series_names)
-
-            # give handle to stream_processor to dump data into
-            self.stream_processor.save_file = self.save_file
+            # give info to stream processor to open a file and start saving
+            full_path = self.stream_processor.start_saving(
+                save_location=self.saveLocationLabel.text(),
+                save_timestamps=self.saveTimestampsCheckBox.isChecked(),
+                series_names=series_names,
+            )
+            logger.info(f"Creating file for saving data: {full_path}")
 
             # let the user know we're saving, change the button's function to "stop saving"
             self.savePushButton.setText("Stop saving")
+            self.saveTimestampsCheckBox.setEnabled(False)
+
         elif not checked:
             # stop recording data
             self.savePushButton.setText("Save data")
-            if self.save_file is not None:
-                logger.info("Closing save file.")
-                self.stream_processor.save_file = None
-                self.save_file.close()
-                self.save_file = None
+            self.saveTimestampsCheckBox.setEnabled(True)
+            logger.info("Closing save file.")
+            self.stream_processor.stop_saving()
 
     @QtCore.pyqtSlot(int)
     def on_receiveDataPortSpinBox_valueChanged(self, value):

@@ -20,7 +20,10 @@ def read_serial_capture_binary(filename, structured=False):
         decoder = json.JSONDecoder()
         json_object, binary_start_index = decoder.raw_decode(chunk_string)
 
-        binary_dtype = np.dtype(json_object["dtype_string"])
+        # json requires lists, numpy requires tuples; convert to tuples
+        dtype = [tuple(x) for x in json_object["dtype"]]
+
+        binary_dtype = np.dtype(dtype)
         columns = ["delimiter"] + json_object["series_names"]
         columns = [name if name != "" else f"var{i}" for i, name in enumerate(columns)]
 
