@@ -236,7 +236,6 @@ class Ui(QtWidgets.QMainWindow):
             binary=binary,
             binary_dtype_string=parsed_dtype_string,
             ascii_num_streams=self.numberOfStreamsSpinBox.value(),
-            add_timestamp=self.addTimestampCheckBox.isChecked(),
             paused=self.pausePushButton.isChecked(),
         )
 
@@ -416,11 +415,6 @@ class Ui(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(int)
     def on_numberOfStreamsSpinBox_valueChanged(self, value):
         self.settings.setValue("ui/numberOfStreams", value)
-        self.initialize_stream_processor()
-
-    @QtCore.pyqtSlot(bool)
-    def on_addTimestampCheckBox_clicked(self, checked):
-        self.settings.setValue("ui/addTimestamp", checked)
         self.initialize_stream_processor()
 
     @QtCore.pyqtSlot(int)

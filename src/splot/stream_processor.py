@@ -25,7 +25,6 @@ class StreamProcessor:
         binary: bool,
         binary_dtype_string: str,
         ascii_num_streams: int,
-        add_timestamp: bool,
         paused: bool = False,
     ):
         self.running = False
@@ -35,7 +34,6 @@ class StreamProcessor:
         self.binary = binary
         # binary_dtype does not include separator byte
         self.binary_dtype = None
-        self.add_timestamp = add_timestamp
         self.ascii_num_streams = ascii_num_streams
 
         self.read_ptr = 0  # read pointer for *SerialReceiver* ringbuffer
@@ -51,17 +49,12 @@ class StreamProcessor:
                 logger.error(f'Failed to set binary data format "{binary_dtype_string}".\n')
                 raise e
 
-            if add_timestamp:
-                self.complete_message_dtype = np.dtype(binary_dtype_string + ", u8")
-            else:
-                self.complete_message_dtype = np.dtype(binary_dtype_string)
+            self.complete_message_dtype = np.dtype(self.binary_dtype.descr + [("timestamp", "u8")])
+
         else:
             self.message_delimiter = bytes(message_delimiter, "utf-8").decode("unicode_escape")
-
-            dtype_string = ",".join(["f8"] * self.ascii_num_streams)
-            if self.add_timestamp:
-                dtype_string = dtype_string + ", u8"
-            self.complete_message_dtype = np.dtype(dtype_string)
+            dtype_list = [(f"f{i}", "f8") for i in range(self.ascii_num_streams)] + [("timestamp", "u8")]
+            self.complete_message_dtype = np.dtype(dtype_list)
 
         self.plot_buffer = RingBuffer(plot_buffer_length, dtype=self.complete_message_dtype)
 
@@ -74,7 +67,7 @@ class StreamProcessor:
         self.write_ptr = 0
 
     def get_num_streams(self):
-        return len(self.complete_message_dtype)
+        return len(self.binary_dtype) if self.binary else self.ascii_num_streams
 
     def process_new_data(self):
         """This slot should be connected to serial_receiver's data_received signal."""
@@ -114,12 +107,9 @@ class StreamProcessor:
                 logger.warning(f"Dropping {num_bad_messages} messages of wrong length.")
             message_numbers = [x for x in message_numbers if len(x) == self.ascii_num_streams]
 
-            if self.add_timestamp:
-                structured_data = np.array(
-                    [(*nums, timestamp) for nums in message_numbers], dtype=self.complete_message_dtype
-                )
-            else:
-                structured_data = np.array(message_numbers, dtype=self.complete_message_dtype)
+            structured_data = np.array(
+                [(*nums, timestamp) for nums in message_numbers], dtype=self.complete_message_dtype
+            )
 
             self.plot_buffer.add(structured_data)
 
@@ -172,12 +162,12 @@ class StreamProcessor:
             #   https://numpy.org/doc/stable/reference/arrays.dtypes.html#arrays-dtypes-constructing
             structured_data = np.frombuffer(np.concatenate(messages), self.binary_dtype)
 
-            if self.add_timestamp:
-                structured_data = rfn.append_fields(
-                    structured_data,
-                    names="timestamp",
-                    data=np.repeat(np.uint64(timestamp), len(structured_data)),
-                )
+            # add timestamp
+            structured_data = rfn.append_fields(
+                structured_data,
+                names="timestamp",
+                data=np.repeat(np.uint64(timestamp), len(structured_data)),
+            )
 
             # if we're saving to file, dump new data to file here
             if self.save_file is not None:
