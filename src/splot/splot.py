@@ -5,6 +5,7 @@ import importlib.resources
 import json
 import logging
 from pathlib import Path
+import re
 import signal
 import socket
 import sys
@@ -24,12 +25,29 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(m
 logger = logging.getLogger(__name__)
 
 
+def parse_splot_dtype_string(text):
+    """Find instances of the pattern 'n[ABC]' and replace with n*'ABC'.
+
+    This function exists to allow users to easily specify complex packet structures,
+    e.g., a packet containing a 3 floats and 5 int16s could be written "3[f4],5[i2]"
+    instead of "f4,f4,f4,i2,i2,i2,i2,i2".
+    """
+    pattern = r"([1-9]\d*)\[(.*?)\]"
+
+    def replacer(match):
+        multiplier = int(match.group(1))
+        content = match.group(2)
+        return ",".join([content] * multiplier)
+
+    return re.sub(pattern, replacer, text)
+
+
 def vector_to_bit_raster(dat: np.ndarray[int], max_bit_index: int = None):
     """Take a vector of integers and return plotting vectors x and y.
     :returns: vectors x and y such that plotting x vs y yields vertical line segments
         at each index when a given bit is 1. E.g., if dat[3] == 5, then x and y will
-        include two line segments at x=3 around y=0 and y=2. Each pair of points is
-        separated by one nan entry (to ensure plotting as isolated line segments).
+        include two line segments at x=3 around y=0 and y=2. Note that this data must
+        be plotted with pyqtgraph's `connect='pairs'` argument.
     """
     x = []
     y = []
@@ -209,12 +227,14 @@ class Ui(QtWidgets.QMainWindow):
         else:
             delimiter = self.asciiMessageDelimiterLineEdit.text()
 
+        parsed_dtype_string = parse_splot_dtype_string(self.binaryDtypeStringLineEdit.text())
+
         self.stream_processor = StreamProcessor(
             serial_receiver=self.serial_receiver,
             plot_buffer_length=self.plotLengthSpinBox.value(),
             message_delimiter=delimiter,
             binary=binary,
-            binary_dtype_string=self.binaryDtypeStringLineEdit.text(),
+            binary_dtype_string=parsed_dtype_string,
             ascii_num_streams=self.numberOfStreamsSpinBox.value(),
             add_timestamp=self.addTimestampCheckBox.isChecked(),
             paused=self.pausePushButton.isChecked(),
@@ -222,7 +242,7 @@ class Ui(QtWidgets.QMainWindow):
 
         self.serial_receiver.data_received.connect(self.stream_processor.process_new_data)
 
-        self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
+        self.create_plot_series(num_streams=self.stream_processor.get_num_streams())
 
     def disconnect_from_serial(self):
         self.plot_timer.stop()
@@ -305,19 +325,20 @@ class Ui(QtWidgets.QMainWindow):
         self.on_seriesSelectorSpinBox_valueChanged(0)
 
     def update_stream_plots(self):
+        data = self.stream_processor.plot_buffer.get_valid_buffer().copy()
+        cursor_x = self.stream_processor.plot_buffer._write_ptr
+
         for i, plot in enumerate(self.plots):
             series = plot.listDataItems()[0]
-            j = self.stream_processor.write_ptr
-            self.plot_cursor_lines[i].setValue(j)
-            dat = self.stream_processor.plot_buffer[:, i].copy()
+            stream_data = data[f"f{i}"]
+            self.plot_cursor_lines[i].setValue(cursor_x)
 
             if self.plot_types[i] == 1:  # raster
                 # convert data to raster (series of line segments)
-                x, y = vector_to_bit_raster(dat)
+                x, y = vector_to_bit_raster(stream_data)
                 series.setData(x, y, connect="pairs")
             else:
-                dat[j] = np.nan  # force plotting break
-                series.setData(dat)
+                series.setData(stream_data, connect="finite")
 
     def closeEvent(self, event):
         """This function is called when the main window is closed"""
@@ -373,7 +394,7 @@ class Ui(QtWidgets.QMainWindow):
                     ascii_num_streams=self.numberOfStreamsSpinBox.value(),
                     message_delimiter=self.asciiMessageDelimiterLineEdit.text(),
                 )
-            self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
+            self.create_plot_series(num_streams=self.stream_processor.get_num_streams())
 
     @QtCore.pyqtSlot()
     def on_asciiMessageDelimiterLineEdit_editingFinished(self):
@@ -490,8 +511,9 @@ class Ui(QtWidgets.QMainWindow):
             port = self.emitDataPortSpinBox.value()
             try:
                 self.zmq_emitter_conn = zmq.Context().socket(zmq.PUB)
-                self.zmq_emitter_conn.bind(f"tcp://*:{port}")
+                self.zmq_emitter_conn.bind(f"tcp://localhost:{port}")
                 self.emitDataPortSpinBox.setEnabled(False)
+                logger.info(f"Now forwarding serial data to tcp://*:{port}")
             except zmq.ZMQError:
                 logger.error(f"Unable to bind port {port} for publishing serial data.")
                 self.emitDataCheckBox.setChecked(False)

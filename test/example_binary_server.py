@@ -9,7 +9,7 @@ while True:
     conn, address = server_socket.accept()  # accept new connection
     counter = 0
     while True:
-        delimiter = 42
+        delimiter = 170
         x1 = int(np.random.rand() * 255)
         x2 = int(np.sin(time.time() * 1) * 2**15)
         x3 = int(np.sin(time.time() * 10) * 2**15)
@@ -31,4 +31,4 @@ while True:
 
         # print(f"Sent: {data}")
         counter += 1
-        time.sleep(0.00005)
+        time.sleep(0.05)

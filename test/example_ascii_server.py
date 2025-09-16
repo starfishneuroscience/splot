@@ -21,6 +21,6 @@ while True:
             print(e)
             break
 
-        # print(f"Sent: {data}")
+        print(f"Sent: {data}")
         counter += 1
-        time.sleep(0.00005)
+        time.sleep(0.001)

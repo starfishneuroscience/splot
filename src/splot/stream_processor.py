@@ -1,9 +1,11 @@
 import logging
-import time
 import re
+import time
 
 import numpy as np
 from numpy.lib import recfunctions as rfn
+
+from .ring_buffer import RingBuffer
 
 
 logger = logging.getLogger(__name__)
@@ -12,7 +14,7 @@ logger = logging.getLogger(__name__)
 class StreamProcessor:
     """
     This class processes data from a SerialReceiver's ringbuffer, converting
-    it to a (n x k)-dimensional buffer that is used for plotting.
+    it to a structured array in a ringbuffer that is used for plotting.
     """
 
     def __init__(
@@ -26,19 +28,17 @@ class StreamProcessor:
         add_timestamp: bool,
         paused: bool = False,
     ):
-        # future parameters: long_or_wide,
-        super().__init__()
         self.running = False
         self.paused = paused
         self.serial_receiver = serial_receiver
 
         self.binary = binary
+        # binary_dtype does not include separator byte
         self.binary_dtype = None
         self.add_timestamp = add_timestamp
+        self.ascii_num_streams = ascii_num_streams
 
         self.read_ptr = 0  # read pointer for *SerialReceiver* ringbuffer
-
-        self.write_ptr = 0  # write pointer for this class's *plot_buffer*
 
         self.save_file = None  # handle to file for saving data
         self.csv_writer = None
@@ -47,26 +47,34 @@ class StreamProcessor:
             self.message_delimiter = int(message_delimiter) % 256
             try:
                 self.binary_dtype = np.dtype(binary_dtype_string)
-                num_streams = np.sum([1 if len(x) <= 2 else np.prod(x[2]) for x in self.binary_dtype.descr])
-                num_streams -= 1  # subtract one to ignore header byte
-                self.plot_buffer = np.full((plot_buffer_length, num_streams), np.nan, dtype=float)
             except Exception as e:
-                logger.error(f'Failed to set binary data format "{binary_dtype_string}".\n{e}')
+                logger.error(f'Failed to set binary data format "{binary_dtype_string}".\n')
                 raise e
+
+            if add_timestamp:
+                self.complete_message_dtype = np.dtype(binary_dtype_string + ", u8")
+            else:
+                self.complete_message_dtype = np.dtype(binary_dtype_string)
         else:
             self.message_delimiter = bytes(message_delimiter, "utf-8").decode("unicode_escape")
-            self.plot_buffer = np.full((plot_buffer_length, ascii_num_streams), np.nan, dtype=float)
+
+            dtype_string = ",".join(["f8"] * self.ascii_num_streams)
+            if self.add_timestamp:
+                dtype_string = dtype_string + ", u8"
+            self.complete_message_dtype = np.dtype(dtype_string)
+
+        self.plot_buffer = RingBuffer(plot_buffer_length, dtype=self.complete_message_dtype)
 
         # compile regex to parse numbers out of arbitrary strings
         numeric_const_pattern = r"[-+]? (?: (?: \d* \. \d+ ) | (?: \d+ \.? ) )(?: [Ee] [+-]? \d+ ) ?"
         self.numeric_rx = re.compile(numeric_const_pattern, re.VERBOSE)
 
-    def change_plot_buffer_length(self, size):
-        self.plot_buffer = np.full((size, self.plot_buffer.shape[1]), np.nan, dtype=float)
+    def change_plot_buffer_length(self, length):
+        self.plot_buffer = RingBuffer(length, adaptive_dtype=True)
         self.write_ptr = 0
 
-    def get_output_dimensions(self):
-        return self.plot_buffer.shape
+    def get_num_streams(self):
+        return len(self.complete_message_dtype)
 
     def process_new_data(self):
         """This slot should be connected to serial_receiver's data_received signal."""
@@ -96,37 +104,32 @@ class StreamProcessor:
             num_bytes_read -= len(messages[-1])
             messages = messages[:-1]
 
-            bad_lengths = set()
-            for message in messages:
-                if message == "":
-                    continue
-                numbers = self.numeric_rx.findall(message)
-                numbers = np.array(numbers, dtype=float)
+            # convert to tuple containing numeric values as strings
+            message_numbers = [tuple(self.numeric_rx.findall(msg)) for msg in messages]
+            message_lengths = [len(nums) for nums in message_numbers]
 
-                # if we're saving to file, dump new data to file here
-                if self.save_file is not None:
-                    line = ",".join(numbers.astype(str)) + "\n"
-                    if self.add_timestamp:
-                        line = str(timestamp) + "," + line
-                    self.save_file.write(line)
+            # drop any invalid (wrong-length) messages and warn about it
+            num_bad_messages = np.sum([length != self.ascii_num_streams for length in message_lengths])
+            if num_bad_messages:
+                logger.warning(f"Dropping {num_bad_messages} messages of wrong length.")
+            message_numbers = [x for x in message_numbers if len(x) == self.ascii_num_streams]
 
-                if len(numbers) >= self.plot_buffer.shape[1]:
-                    self.plot_buffer[self.write_ptr] = numbers[: self.plot_buffer.shape[1]]
-                else:
-                    self.plot_buffer[self.write_ptr, : len(numbers)] = numbers
-                    self.plot_buffer[self.write_ptr, len(numbers) :] = np.nan
-                self.write_ptr = (self.write_ptr + 1) % self.plot_buffer.shape[0]
-
-                if len(numbers) != self.plot_buffer.shape[1]:
-                    bad_lengths.add(len(numbers))
-
-            if len(bad_lengths):
-                logger.warning(
-                    f"Received messages containing {bad_lengths} fields; expected {self.plot_buffer.shape[1]}"
+            if self.add_timestamp:
+                structured_data = np.array(
+                    [(*nums, timestamp) for nums in message_numbers], dtype=self.complete_message_dtype
                 )
+            else:
+                structured_data = np.array(message_numbers, dtype=self.complete_message_dtype)
+
+            self.plot_buffer.add(structured_data)
+
+            # # if we're saving to file, dump new data to file here
+            # if self.save_file is not None:
+            #     line = ",".join(numbers.astype(str)) + "\n"
+            #     self.save_file.write(line)
 
         elif self.binary:
-            expected_length = self.binary_dtype.itemsize
+            expected_length = self.binary_dtype.itemsize  # does not include delimiter byte
 
             # preliminary pass - split on delimiter
             delimiter_indices = np.where(new_data == self.message_delimiter)[0]
@@ -142,13 +145,16 @@ class StreamProcessor:
                 valid_delimiter_indices.pop(0)
             messages = np.split(new_data, valid_delimiter_indices)
 
+            # drop delimiter byte from each message
+            messages = [x[1:] for x in messages]
+
             # check if last message is truncated, and if so, remove it
             if len(messages[-1]) < expected_length:
                 num_bytes_read -= len(messages[-1])
                 messages = messages[:-1]
 
             # remove any invalid messages with extra bytes
-            message_lengths = np.array([len(msg) for msg in messages], dtype=int)
+            message_lengths = np.array([len(msg) for msg in messages])
             if any(message_lengths != expected_length):
                 bad_message_lengths = message_lengths[message_lengths != expected_length]
                 logger.error(
@@ -165,27 +171,33 @@ class StreamProcessor:
             # the numpy parser is amazing, see docs:
             #   https://numpy.org/doc/stable/reference/arrays.dtypes.html#arrays-dtypes-constructing
             structured_data = np.frombuffer(np.concatenate(messages), self.binary_dtype)
-            data = rfn.structured_to_unstructured(structured_data)
-            data = data[:, 1:]  # drop 1st column, it's the delimiter which is constant by definition
+
+            if self.add_timestamp:
+                structured_data = rfn.append_fields(
+                    structured_data,
+                    names="timestamp",
+                    data=np.repeat(np.uint64(timestamp), len(structured_data)),
+                )
 
             # if we're saving to file, dump new data to file here
             if self.save_file is not None:
-                self.save_file.write(np.concatenate(messages).tobytes())
+                self.save_file.write(structured_data.tobytes())
 
             # update ring-buffer that plot UI will use
-            n = len(messages)
-            if n >= self.plot_buffer.shape[0]:
-                # If data is larger than plot_buffer, just overwrite the whole buffer with the most recent data
-                self.plot_buffer[:] = data[-self.plot_buffer.shape[0] :]
-            elif self.write_ptr + n <= self.plot_buffer.shape[0]:
-                # new data is smaller than plot_buffer and doesnt wrap around
-                self.plot_buffer[self.write_ptr : self.write_ptr + n] = data
-            else:
-                # new data is smaller than plot_buffer and wraps around end of buffer
-                n1 = self.plot_buffer.shape[0] - self.write_ptr
-                n2 = n - n1
-                self.plot_buffer[self.write_ptr :] = data[:n1]
-                self.plot_buffer[:n2] = data[n1:]
-            self.write_ptr = (self.write_ptr + n) % self.plot_buffer.shape[0]
+            self.plot_buffer.add(structured_data)
+            # n = len(messages)
+            # if n >= self.plot_buffer.shape[0]:
+            #     # If data is larger than plot_buffer, just overwrite the whole buffer with the most recent data
+            #     self.plot_buffer[:] = data[-self.plot_buffer.shape[0] :]
+            # elif self.write_ptr + n <= self.plot_buffer.shape[0]:
+            #     # new data is smaller than plot_buffer and doesnt wrap around
+            #     self.plot_buffer[self.write_ptr : self.write_ptr + n] = data
+            # else:
+            #     # new data is smaller than plot_buffer and wraps around end of buffer
+            #     n1 = self.plot_buffer.shape[0] - self.write_ptr
+            #     n2 = n - n1
+            #     self.plot_buffer[self.write_ptr :] = data[:n1]
+            #     self.plot_buffer[:n2] = data[n1:]
+            # self.write_ptr = (self.write_ptr + n) % self.plot_buffer.shape[0]
 
         self.read_ptr = (self.read_ptr + num_bytes_read) % len(self.serial_receiver.ring_buffer)  # TODO: hack
