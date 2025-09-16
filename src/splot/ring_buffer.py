@@ -2,15 +2,13 @@ import numpy as np
 
 
 class RingBuffer:
-    def __init__(self, buffer_length, dtype="B", adaptive_dtype=False, ignore_incompatible_dtype=False):
+    def __init__(self, buffer_length, dtype="B"):
         self._buffer = np.empty((buffer_length,), dtype=dtype)
-        self._ignore_incompatible_dtype = ignore_incompatible_dtype
-        self._adaptive_dtype = adaptive_dtype
-
         self._write_ptr = 0
         self._full_buffer_valid = False
 
     def add(self, new_data):
+        # if scalar provided, convert to array first
         try:
             n = len(new_data)
         except TypeError:
@@ -20,24 +18,8 @@ class RingBuffer:
         if n == 0:
             return
 
-        try:
-            new_data = np.array(new_data, dtype=self._buffer.dtype)
-        except TypeError as e:
-            if self._adaptive_dtype:
-                self._buffer = np.zeros((len(self._buffer),), dtype=new_data.dtype)
-
-                self._write_ptr = 0
-                self._full_buffer_valid = False
-            elif self._ignore_incompatible_dtype:
-                return
-            else:
-                raise TypeError(
-                    f"Incompatible data type added to ringbuffer. "
-                    f"\nRingbuffer type={self._buffer.dtype}"
-                    f"\nnew_data.dtype ={new_data.dtype}"
-                    f"\n{new_data=}"
-                    f"\n{e=}"
-                )
+        # force data dtype. if it doesnt work, will throw an exception
+        new_data = np.array(new_data, dtype=self._buffer.dtype)
 
         if n > len(self._buffer):
             # received more data than fits in the buffer, so just store the most recent data
@@ -58,7 +40,7 @@ class RingBuffer:
             self._full_buffer_valid = True
 
     def get_valid_buffer(self):
-        if self._full_buffer_valid:
-            return self._buffer
-        else:
+        if not self._full_buffer_valid:
             return self._buffer[: self._write_ptr]
+
+        return self._buffer

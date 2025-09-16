@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def parse_splot_dtype_string(text):
-    """Find instances of the pattern 'n[ABC]' and replace with n*'ABC'.
+    """Find pattern 'n[ABC]' and replace with n comma-separated repeats of 'ABC'.
 
     This function exists to allow users to easily specify complex packet structures,
     e.g., a packet containing a 3 floats and 5 int16s could be written "3[f4],5[i2]"
