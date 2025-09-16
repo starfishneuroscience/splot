@@ -7,6 +7,7 @@ import signal
 import socket
 import sys
 import threading
+import time
 
 import numpy as np
 import pyqtgraph as pg
@@ -128,6 +129,8 @@ class Ui(QtWidgets.QMainWindow):
         self.zmq_listener_thread = None
         self.zmq_listener_loop_running = False
         self.zmq_emitter_conn = None
+
+        self.start_time = time.time_ns() // 1000
 
     def populate_serial_options(self):
         option_map = {
@@ -319,21 +322,40 @@ class Ui(QtWidgets.QMainWindow):
         # set initial UI elements to correct values
         self.on_seriesSelectorSpinBox_valueChanged(0)
 
+    @QtCore.pyqtSlot(str)
+    def on_xAxisChoiceComboBox_currentTextChanged(self, x_axis_choice):
+        for line in self.plot_cursor_lines:
+            line.setVisible(x_axis_choice != "time (s)")
+
     def update_stream_plots(self):
         data = self.stream_processor.plot_buffer.get_valid_buffer().copy()
         cursor_x = self.stream_processor.plot_buffer._write_ptr
 
+        use_timestamp = self.xAxisChoiceComboBox.currentText() == "time (s)"
+        if use_timestamp:
+            data = np.roll(data, -cursor_x)
+
         for i, plot in enumerate(self.plots):
             series = plot.listDataItems()[0]
             stream_data = data[f"f{i}"]
-            self.plot_cursor_lines[i].setValue(cursor_x)
+
+            if not use_timestamp:
+                self.plot_cursor_lines[i].setValue(cursor_x)
 
             if self.plot_types[i] == 1:  # raster
                 # convert data to raster (series of line segments)
                 x, y = vector_to_bit_raster(stream_data)
+                if use_timestamp:
+                    x = (data["timestamp_usec"][x] - self.start_time) / 1e6
                 series.setData(x, y, connect="pairs")
             else:
-                series.setData(stream_data, connect="finite")
+                if use_timestamp:
+                    x = (data["timestamp_usec"] - self.start_time) / 1e6
+                    step_mode = "right"
+                else:
+                    x = np.arange(len(stream_data))
+                    step_mode = None
+                series.setData(x, stream_data, connect="finite", stepMode=step_mode)
 
     def closeEvent(self, event):
         """This function is called when the main window is closed"""

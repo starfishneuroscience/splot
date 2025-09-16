@@ -30,7 +30,7 @@ splot can save binary data or text/ascii data.
 
 splot does not save "raw" data from the serial port; instead it saves only valid messages that adhere to the format specified.
 
-When receiving binary data, splot can save a file consisting of a json header including the data format (as specified as a numpy dtype string) and the data series names, followed by the binary data. A helper function `read_serial_capture_binary` can be used to read this file and format it as a structured recarray, or an (unstructured) ndarray , e.g.,
+When receiving binary data, splot can save a file consisting of a json header including the data format (as specified as a numpy dtype) and the data series names, followed by the binary data. A helper function `read_serial_capture_binary` can be used to read this file and format it as a structured recarray, or an (unstructured) ndarray , e.g.,
 ```py
 import splot
 arr, series_names = splot.read_serial_capture_binary(
