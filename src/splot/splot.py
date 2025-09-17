@@ -515,6 +515,7 @@ class Ui(QtWidgets.QMainWindow):
                 self.serial_receiver.forward_conn = self.zmq_emitter_conn
 
         elif not checked:
+            self.emitDataPortSpinBox.setEnabled(True)
             if self.zmq_emitter_conn:
                 self.zmq_emitter_conn.close()
             if self.serial_receiver:
