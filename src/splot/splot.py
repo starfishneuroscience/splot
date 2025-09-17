@@ -158,6 +158,7 @@ class Ui(QtWidgets.QMainWindow):
             "ui/plotLength": lambda x: self.plotLengthSpinBox.setValue(int(x)),
             "ui/zmqReceiveDataPort": lambda x: self.receiveDataPortSpinBox.setValue(int(x)),
             "ui/zmqEmitDataPort": lambda x: self.emitDataPortSpinBox.setValue(int(x)),
+            "ui/saveTimestamps": lambda x: self.saveTimestampsCheckBox.setChecked(int(x)),
         }
         for key, set_function in settings_map.items():
             value = self.settings.value(key)
@@ -482,6 +483,10 @@ class Ui(QtWidgets.QMainWindow):
             logger.info("Closing save file.")
             if self.stream_processor:
                 self.stream_processor.stop_saving()
+
+    @QtCore.pyqtSlot(bool)
+    def on_saveTimestampsCheckBox_clicked(self, checked):
+        self.settings.setValue("ui/saveTimestamps", checked)
 
     @QtCore.pyqtSlot(int)
     def on_receiveDataPortSpinBox_valueChanged(self, value):
