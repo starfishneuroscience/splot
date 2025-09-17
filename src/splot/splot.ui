@@ -36,6 +36,18 @@
        </sizepolicy>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_3">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
        <item>
         <widget class="QFrame" name="sourceFrame_2">
          <property name="sizePolicy">
@@ -113,7 +125,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QFrame" name="">
+        <widget class="QFrame" name="horizontalFrame">
          <layout class="QHBoxLayout" name="horizontalLayout_2">
           <item>
            <widget class="QFrame" name="leftFrame">
@@ -152,18 +164,23 @@
               <number>0</number>
              </property>
              <item>
-              <widget class="QFrame" name="serialParametersFrame">
+              <widget class="QGroupBox" name="serialParametersGroupBox">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
                  <horstretch>0</horstretch>
                  <verstretch>0</verstretch>
                 </sizepolicy>
                </property>
-               <property name="frameShape">
-                <enum>QFrame::StyledPanel</enum>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
                </property>
-               <property name="frameShadow">
-                <enum>QFrame::Raised</enum>
+               <property name="autoFillBackground">
+                <bool>false</bool>
+               </property>
+               <property name="title">
+                <string>Serial parameters</string>
                </property>
                <layout class="QFormLayout" name="serialParametersFormLayout">
                 <property name="fieldGrowthPolicy">
@@ -303,12 +320,14 @@
               </widget>
              </item>
              <item>
-              <widget class="QFrame" name="frame">
-               <property name="frameShape">
-                <enum>QFrame::StyledPanel</enum>
+              <widget class="QGroupBox" name="groupBox">
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
                </property>
-               <property name="frameShadow">
-                <enum>QFrame::Raised</enum>
+               <property name="title">
+                <string>Message format</string>
                </property>
                <layout class="QFormLayout" name="formLayout">
                 <property name="fieldGrowthPolicy">
@@ -446,12 +465,14 @@
               </widget>
              </item>
              <item>
-              <widget class="QFrame" name="saveFrame">
-               <property name="frameShape">
-                <enum>QFrame::StyledPanel</enum>
+              <widget class="QGroupBox" name="saveGroupBox">
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
                </property>
-               <property name="frameShadow">
-                <enum>QFrame::Raised</enum>
+               <property name="title">
+                <string>Saving data</string>
                </property>
                <layout class="QGridLayout" name="gridLayout_2">
                 <property name="leftMargin">
@@ -516,7 +537,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QFrame" name="zmqFrame">
+              <widget class="QGroupBox" name="zmqGroupBox">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                  <horstretch>0</horstretch>
@@ -529,8 +550,13 @@
                  <height>0</height>
                 </size>
                </property>
-               <property name="frameShape">
-                <enum>QFrame::StyledPanel</enum>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
+               <property name="title">
+                <string>ZMQ interface</string>
                </property>
                <layout class="QGridLayout" name="gridLayout">
                 <property name="leftMargin">
@@ -623,15 +649,17 @@
               </spacer>
              </item>
              <item>
-              <widget class="QFrame" name="seriesPropertyFrame">
+              <widget class="QGroupBox" name="seriesPropertyGroupBox">
                <property name="enabled">
                 <bool>true</bool>
                </property>
-               <property name="frameShape">
-                <enum>QFrame::StyledPanel</enum>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
                </property>
-               <property name="frameShadow">
-                <enum>QFrame::Raised</enum>
+               <property name="title">
+                <string>Data series configuration</string>
                </property>
                <layout class="QGridLayout" name="gridLayout_3">
                 <property name="leftMargin">
@@ -663,7 +691,7 @@
                   </property>
                  </widget>
                 </item>
-                <item row="3" column="0">
+                <item row="2" column="0">
                  <widget class="QLabel" name="seriesPlotTypeLabel">
                   <property name="text">
                    <string>Plot type</string>
@@ -690,17 +718,7 @@
                   </property>
                  </widget>
                 </item>
-                <item row="0" column="3">
-                 <widget class="QCheckBox" name="seriesVisibleCheckBox">
-                  <property name="enabled">
-                   <bool>true</bool>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item row="3" column="1" colspan="3">
+                <item row="2" column="1" colspan="3">
                  <widget class="QComboBox" name="seriesPlotTypeComboBox">
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -720,6 +738,16 @@
                   </item>
                  </widget>
                 </item>
+                <item row="0" column="3">
+                 <widget class="QCheckBox" name="seriesVisibleCheckBox">
+                  <property name="enabled">
+                   <bool>true</bool>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
                 <item row="1" column="1" colspan="3">
                  <widget class="QLineEdit" name="seriesNameLineEdit"/>
                 </item>
@@ -727,12 +755,14 @@
               </widget>
              </item>
              <item>
-              <widget class="QFrame" name="frame">
-               <property name="frameShape">
-                <enum>QFrame::StyledPanel</enum>
+              <widget class="QGroupBox" name="groupBox">
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
                </property>
-               <property name="frameShadow">
-                <enum>QFrame::Raised</enum>
+               <property name="title">
+                <string>Plot options</string>
                </property>
                <layout class="QFormLayout" name="formLayout_4">
                 <property name="fieldGrowthPolicy">
