@@ -502,7 +502,7 @@ class Ui(QtWidgets.QMainWindow):
             port = self.emitDataPortSpinBox.value()
             try:
                 self.zmq_emitter_conn = zmq.Context().socket(zmq.PUB)
-                self.zmq_emitter_conn.bind(f"tcp://localhost:{port}")
+                self.zmq_emitter_conn.bind(f"tcp://*:{port}")
                 self.emitDataPortSpinBox.setEnabled(False)
                 logger.info(f"Now forwarding serial data to tcp://*:{port}")
             except zmq.ZMQError:

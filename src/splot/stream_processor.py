@@ -133,9 +133,10 @@ class StreamProcessor:
             message_lengths = [len(nums) for nums in message_numbers]
 
             # drop any invalid (wrong-length) messages and warn about it
-            num_bad_messages = np.sum([length != self.ascii_num_streams for length in message_lengths])
+            bad_message_lengths = [length for length in message_lengths if length != self.ascii_num_streams]
+            num_bad_messages = len(bad_message_lengths)
             if num_bad_messages:
-                logger.warning(f"Dropping {num_bad_messages} messages of wrong length.")
+                logger.warning(f"Dropping {num_bad_messages} bad messages. Lengths: {set(bad_message_lengths)}")
             message_numbers = [x for x in message_numbers if len(x) == self.ascii_num_streams]
 
             structured_data = np.array(
@@ -181,7 +182,9 @@ class StreamProcessor:
             message_lengths = np.array([len(msg) for msg in messages])
             if any(message_lengths != expected_length):
                 bad_message_lengths = message_lengths[message_lengths != expected_length]
-                logger.error(f"Dropping {len(bad_message_lengths)} bad messages. Lengths: {set(bad_message_lengths)}.")
+                logger.warning(
+                    f"Dropping {len(bad_message_lengths)} bad messages. Lengths: {np.unique(bad_message_lengths)}."
+                )
                 messages = [m for m in messages if len(m) == expected_length]
 
             if len(messages) == 0:
