@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-import csv
-import datetime
 import importlib.resources
-import json
 import logging
 from pathlib import Path
+import re
 import signal
 import socket
 import sys
 import threading
+import time
 
 import numpy as np
 import pyqtgraph as pg
@@ -22,6 +21,57 @@ from .stream_processor import StreamProcessor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def parse_splot_dtype_string(text):
+    """Find pattern 'n[ABC]' and replace with n comma-separated repeats of 'ABC'.
+
+    This function exists to allow users to easily specify complex packet structures,
+    e.g., a packet containing a 3 floats and 5 int16s could be written "3[f4],5[i2]"
+    instead of "f4,f4,f4,i2,i2,i2,i2,i2".
+    """
+    pattern = r"([1-9]\d*)\[(.*?)\]"
+
+    def replacer(match):
+        multiplier = int(match.group(1))
+        content = match.group(2)
+        return ",".join([content] * multiplier)
+
+    return re.sub(pattern, replacer, text)
+
+
+def vector_to_bit_raster(dat: np.ndarray[int], max_bit_index: int = None):
+    """Take a vector of integers and return plotting vectors x and y.
+    :returns: vectors x and y such that plotting x vs y yields vertical line segments
+        at each index when a given bit is 1. E.g., if dat[3] == 5, then x and y will
+        include two line segments at x=3 around y=0 and y=2. Note that this data must
+        be plotted with pyqtgraph's `connect='pairs'` argument.
+    """
+    x = []
+    y = []
+
+    if max_bit_index is None:
+        if not all(np.isnan(dat)) and np.nanmax(dat) > 0 and np.isfinite(np.nanmax(dat)):
+            max_bit_index = int(np.ceil(np.log2(np.nanmax(dat))))
+        else:
+            max_bit_index = 7
+
+    # analyze only non-zero indices for speed (sparsity assumption)
+    non_zero_indices = np.where(dat > 0)[0]
+
+    # go through each bit up to max_bit_value and add vertical lines of height 0.8 at each x position
+    for bit_index in range(max_bit_index):
+        ind = np.where(dat[non_zero_indices].astype(int) & (1 << bit_index))[0]
+        x.append(np.repeat(non_zero_indices[ind], 2))
+        y.append(np.tile([bit_index - 0.4, bit_index + 0.4], len(ind)))
+
+    # add horizontal lines for each bit (so that all less-significant bits will still get plotted)
+    x.append(np.tile([0, len(dat)], max_bit_index + 1))
+    y.append(np.concatenate([[i, i] for i in range(max_bit_index + 1)]))
+
+    x = np.concatenate(x)
+    y = np.concatenate(y)
+    return x, y
 
 
 class Ui(QtWidgets.QMainWindow):
@@ -75,11 +125,12 @@ class Ui(QtWidgets.QMainWindow):
         self.enable_ui_elements_on_connection(connected=False)
 
         self.saveLocationLabel.setText(str(Path.home()))
-        self.save_file = None
 
         self.zmq_listener_thread = None
         self.zmq_listener_loop_running = False
         self.zmq_emitter_conn = None
+
+        self.start_time = time.time_ns() // 1000
 
     def populate_serial_options(self):
         option_map = {
@@ -107,6 +158,7 @@ class Ui(QtWidgets.QMainWindow):
             "ui/plotLength": lambda x: self.plotLengthSpinBox.setValue(int(x)),
             "ui/zmqReceiveDataPort": lambda x: self.receiveDataPortSpinBox.setValue(int(x)),
             "ui/zmqEmitDataPort": lambda x: self.emitDataPortSpinBox.setValue(int(x)),
+            "ui/saveTimestamps": lambda x: self.saveTimestampsCheckBox.setChecked(int(x)),
         }
         for key, set_function in settings_map.items():
             value = self.settings.value(key)
@@ -141,7 +193,7 @@ class Ui(QtWidgets.QMainWindow):
                 baudrate=int(self.serialBaudRateComboBox.currentText()),
                 parity=self.serialParityComboBox.currentText(),
                 stopbits=float(self.serialStopBitsComboBox.currentText()),
-                timeout=0.010,
+                timeout=0.001,
             )
             read_function = self.serial_connection.read
 
@@ -151,26 +203,45 @@ class Ui(QtWidgets.QMainWindow):
             read_chunk_size=self.serialReadChunkSizeSpinBox.value(),
             forward_conn=self.zmq_emitter_conn,
         )
+        self.serial_receiver.data_rate.connect(lambda x: self.statusBar().showMessage(f"Data rate: {x} bytes/sec"))
+
+        self.initialize_stream_processor()
+
+        self.serial_receiver.start()
+        self.enable_ui_elements_on_connection(connected=True)
+        self.plot_timer.start(33)
+
+    def initialize_stream_processor(self):
+        """Create a new StreamProcessor based on the current UI settings.
+
+        Also triggers creating a new plot series.
+        """
+        if self.serial_receiver is None:
+            # stream processor doesn't do anything unless we're connected, and will
+            # be instantiated upon connection in `connect_to_serial()`
+            return
+
         binary = self.dataFormatComboBox.currentText() == "binary"
         if binary:
             delimiter = self.binaryMessageDelimiterSpinBox.value()
         else:
             delimiter = self.asciiMessageDelimiterLineEdit.text()
+
+        parsed_dtype_string = parse_splot_dtype_string(self.binaryDtypeStringLineEdit.text())
+
         self.stream_processor = StreamProcessor(
             serial_receiver=self.serial_receiver,
             plot_buffer_length=self.plotLengthSpinBox.value(),
             message_delimiter=delimiter,
             binary=binary,
-            binary_dtype_string=self.binaryDtypeStringLineEdit.text(),
+            binary_dtype_string=parsed_dtype_string,
             ascii_num_streams=self.numberOfStreamsSpinBox.value(),
             paused=self.pausePushButton.isChecked(),
         )
+
         self.serial_receiver.data_received.connect(self.stream_processor.process_new_data)
-        self.serial_receiver.data_rate.connect(lambda x: self.statusBar().showMessage(f"Data rate: {x} bytes/sec"))
-        self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
-        self.serial_receiver.start()
-        self.enable_ui_elements_on_connection(connected=True)
-        self.plot_timer.start(33)
+
+        self.create_plot_series(num_streams=self.stream_processor.get_num_streams())
 
     def disconnect_from_serial(self):
         self.plot_timer.stop()
@@ -252,47 +323,40 @@ class Ui(QtWidgets.QMainWindow):
         # set initial UI elements to correct values
         self.on_seriesSelectorSpinBox_valueChanged(0)
 
-    def vector_to_bit_raster(self, dat):
-        x = []
-        y = []
-
-        if not all(np.isnan(dat)) and np.nanmax(dat) > 0 and np.isfinite(np.nanmax(dat)):
-            max_bit_index = int(np.log2(np.nanmax(dat)) + 1)
-
-        else:
-            max_bit_index = 7
-
-        # analyze only non-zero indices for speed (sparsity assumption)
-        non_zero_indices = np.where(dat > 0)[0]
-
-        # go through each bit up to max_bit_value and add vertical lines of height 0.8 at each x position
-        for bit_index in range(max_bit_index):
-            ind = np.where(dat[non_zero_indices].astype(int) & (1 << bit_index))[0]
-            x.append(np.repeat(non_zero_indices[ind], 2))
-            y.append(np.tile([bit_index - 0.4, bit_index + 0.4], len(ind)))
-
-        # add horizontal lines for each bit (so that all less-significant bits will still get plotted)
-        x.append(np.tile([0, len(dat)], max_bit_index + 1))
-        y.append(np.concatenate([[i, i] for i in range(max_bit_index + 1)]))
-
-        x = np.concatenate(x)
-        y = np.concatenate(y)
-        return x, y
+    @QtCore.pyqtSlot(str)
+    def on_xAxisChoiceComboBox_currentTextChanged(self, x_axis_choice):
+        for line in self.plot_cursor_lines:
+            line.setVisible(x_axis_choice != "time (s)")
 
     def update_stream_plots(self):
+        data = self.stream_processor.plot_buffer.get_valid_buffer().copy()
+        cursor_x = self.stream_processor.plot_buffer._write_ptr
+
+        use_timestamp = self.xAxisChoiceComboBox.currentText() == "time (s)"
+        if use_timestamp:
+            data = np.roll(data, -cursor_x)
+
         for i, plot in enumerate(self.plots):
             series = plot.listDataItems()[0]
-            j = self.stream_processor.write_ptr
-            self.plot_cursor_lines[i].setValue(j)
-            dat = self.stream_processor.plot_buffer[:, i].copy()
+            stream_data = data[f"f{i}"]
+
+            if not use_timestamp:
+                self.plot_cursor_lines[i].setValue(cursor_x)
 
             if self.plot_types[i] == 1:  # raster
                 # convert data to raster (series of line segments)
-                x, y = self.vector_to_bit_raster(dat)
+                x, y = vector_to_bit_raster(stream_data)
+                if use_timestamp:
+                    x = (data["timestamp_usec"][x] - self.start_time) / 1e6
                 series.setData(x, y, connect="pairs")
             else:
-                dat[j] = np.nan  # force plotting break
-                series.setData(dat)
+                if use_timestamp:
+                    x = (data["timestamp_usec"] - self.start_time) / 1e6
+                    step_mode = "right"
+                else:
+                    x = np.arange(len(stream_data))
+                    step_mode = None
+                series.setData(x, stream_data, connect="finite", stepMode=step_mode)
 
     def closeEvent(self, event):
         """This function is called when the main window is closed"""
@@ -336,52 +400,29 @@ class Ui(QtWidgets.QMainWindow):
         self.binaryMessageDelimiterLabel.setEnabled(binary)
         self.asciiMessageDelimiterLineEdit.setEnabled(not binary)
         self.asciiMessageDelimiterLabel.setEnabled(not binary)
-
-        if self.stream_processor is not None:
-            if binary:
-                self.stream_processor.set_binary_mode(
-                    binary_dtype_string=self.binaryDtypeStringLineEdit.text(),
-                    message_delimiter=self.binaryMessageDelimiterSpinBox.value(),
-                )
-            else:
-                self.stream_processor.set_ascii_mode(
-                    ascii_num_streams=self.numberOfStreamsSpinBox.value(),
-                    message_delimiter=self.asciiMessageDelimiterLineEdit.text(),
-                )
-            self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
+        self.initialize_stream_processor()
 
     @QtCore.pyqtSlot()
     def on_asciiMessageDelimiterLineEdit_editingFinished(self):
         value = self.asciiMessageDelimiterLineEdit.text()
         self.settings.setValue("ui/asciiMessageDelimiter", value)
-        if self.stream_processor is not None:
-            self.stream_processor.set_message_delimiter(value)
+        self.initialize_stream_processor()
 
     @QtCore.pyqtSlot(int)
     def on_binaryMessageDelimiterSpinBox_valueChanged(self, value):
         self.settings.setValue("ui/binaryMessageDelimiter", value)
-        if self.stream_processor is not None:
-            self.stream_processor.set_message_delimiter(value)
+        self.initialize_stream_processor()
 
     @QtCore.pyqtSlot()
     def on_binaryDtypeStringLineEdit_editingFinished(self):
         value = self.binaryDtypeStringLineEdit.text()
         self.settings.setValue("ui/binaryDtypeString", value)
-        if self.stream_processor is not None:
-            self.stream_processor.set_binary_dtype(value)
-            # we may have changed the number of plots, so re-create the plot series
-            self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
+        self.initialize_stream_processor()
 
     @QtCore.pyqtSlot(int)
     def on_numberOfStreamsSpinBox_valueChanged(self, value):
         self.settings.setValue("ui/numberOfStreams", value)
-        if self.stream_processor is not None:
-            self.stream_processor.set_ascii_mode(
-                ascii_num_streams=value,
-                message_delimiter=self.asciiMessageDelimiterLineEdit.text(),
-            )
-            # we may have changed the number of plots, so re-create the plot series
-            self.create_plot_series(num_streams=self.stream_processor.get_output_dimensions()[1])
+        self.initialize_stream_processor()
 
     @QtCore.pyqtSlot(int)
     def on_seriesSelectorSpinBox_valueChanged(self, series_index):
@@ -422,40 +463,30 @@ class Ui(QtWidgets.QMainWindow):
         # note: toggled signal will be called regardless of whether user clicks or if
         #   we programmatically change the state of the button.
         if checked:
-            # start recording data
-            filename = datetime.datetime.now().strftime("serialcapture_%Y-%m-%d_%H-%M-%S")
-            full_path = self.saveLocationLabel.text() + "/" + filename
-            full_path += ".bin" if self.stream_processor.binary else ".csv"
-            logger.info(f"Creating file for saving data: {full_path}")
-
             series_names = [plot.getAxis("left").labelText for plot in self.plots]
-
-            if self.stream_processor.binary:
-                self.save_file = open(full_path, "wb")
-                # write json header
-
-                header = {"dtype_string": self.binaryDtypeStringLineEdit.text(), "series_names": series_names}
-                byte_str = bytes(json.dumps(header), "utf-8")
-                self.save_file.write(byte_str)
-
-            else:  # ascii data, write csv header
-                self.save_file = open(full_path, "w")
-                writer = csv.writer(self.save_file)
-                writer.writerow(series_names)
-
-            # give handle to stream_processor to dump data into
-            self.stream_processor.save_file = self.save_file
+            # give info to stream processor to open a file and start saving
+            full_path = self.stream_processor.start_saving(
+                save_location=self.saveLocationLabel.text(),
+                save_timestamps=self.saveTimestampsCheckBox.isChecked(),
+                series_names=series_names,
+            )
+            logger.info(f"Creating file for saving data: {full_path}")
 
             # let the user know we're saving, change the button's function to "stop saving"
             self.savePushButton.setText("Stop saving")
+            self.saveTimestampsCheckBox.setEnabled(False)
+
         elif not checked:
             # stop recording data
             self.savePushButton.setText("Save data")
-            if self.save_file is not None:
-                logger.info("Closing save file.")
-                self.stream_processor.save_file = None
-                self.save_file.close()
-                self.save_file = None
+            self.saveTimestampsCheckBox.setEnabled(True)
+            logger.info("Closing save file.")
+            if self.stream_processor:
+                self.stream_processor.stop_saving()
+
+    @QtCore.pyqtSlot(bool)
+    def on_saveTimestampsCheckBox_clicked(self, checked):
+        self.settings.setValue("ui/saveTimestamps", checked)
 
     @QtCore.pyqtSlot(int)
     def on_receiveDataPortSpinBox_valueChanged(self, value):
@@ -473,6 +504,7 @@ class Ui(QtWidgets.QMainWindow):
                 self.zmq_emitter_conn = zmq.Context().socket(zmq.PUB)
                 self.zmq_emitter_conn.bind(f"tcp://*:{port}")
                 self.emitDataPortSpinBox.setEnabled(False)
+                logger.info(f"Now forwarding serial data to tcp://*:{port}")
             except zmq.ZMQError:
                 logger.error(f"Unable to bind port {port} for publishing serial data.")
                 self.emitDataCheckBox.setChecked(False)
@@ -483,6 +515,7 @@ class Ui(QtWidgets.QMainWindow):
                 self.serial_receiver.forward_conn = self.zmq_emitter_conn
 
         elif not checked:
+            self.emitDataPortSpinBox.setEnabled(True)
             if self.zmq_emitter_conn:
                 self.zmq_emitter_conn.close()
             if self.serial_receiver:

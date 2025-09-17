@@ -25,7 +25,7 @@ class SerialReceiver(QtCore.QThread):
         self.ring_buffer = np.empty((buffer_length,), dtype="B")
         self.write_ptr = 0
 
-        # can use this field to forward data to another connection/socket. must have a `write` method.
+        # can use this field to forward data to another connection/socket. must have a `send` method.
         self.forward_conn = forward_conn
 
     def stop(self):
@@ -48,7 +48,7 @@ class SerialReceiver(QtCore.QThread):
 
             if len(read):
                 if self.forward_conn is not None:
-                    self.forward_conn.write(read)
+                    self.forward_conn.send(read)
 
                 bytes_in_last_second += len(read)
                 new_data = np.frombuffer(read, dtype="B")

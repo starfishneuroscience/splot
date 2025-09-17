@@ -4,7 +4,10 @@
 splot is intended to be a performant, swiss army knife for plotting and assessing data being passed over a serial connection. Currently, it supports data being sent via a computer serial port (e.g. `COM1` on windows, or `/dev/ttyusb0` on mac or linux), or over a network via a tcp/udp socket.
 
 Data is often sent in different formats, so splot is intended to have the flexibility to parse various message encodings. Currently it supports:
-1. *binary encoded messages* with a single-byte delimiter between messages. The user can specify which bytes of the message belong to which data series. For example, if every message consists of a 0 header/delimiter byte, a 2-byte unsigned integer, a 4-byte float, an 8-byte double, and a signed 1-byte integer, one could specify this as "u1,u2,f4,f8,i1" (see https://numpy.org/doc/stable/user/basics.rec.html#structured-datatypes for details and more examples).
+
+1. *binary encoded messages* with a single-byte delimiter between messages. The user can specify which bytes of the message belong to which data series. For example, if every message consists of a header/delimiter byte, a 2-byte unsigned integer, a 4-byte float, an 8-byte double, and a signed 1-byte integer, one could specify this as "u2,f4,f8,i1" (see https://numpy.org/doc/stable/user/basics.rec.html#structured-datatypes for details and more examples). Notes:
+   1. The delimiter byte is NOT to be included in the specified binary format!
+   2. Repeated field types can be specified in square brackets, e.g., "3[i2],i1" is equivalent to "i2,i2,i2,i1".
 2. *ascii encoded messages*, with a single-byte delimiter between messages (typically a newline, '\n'). The user specifies the number of data series expected in each message `n`, and the first `n` numbers in each message will be plotted. If less than `n` values are present, the remaining values are filled with NaNs.
 
 ## Screenshots (what does it look like?)
@@ -25,7 +28,9 @@ splot has been tested with 12M baud serial connections with net data rates excee
 ## Saving data
 splot can save binary data or text/ascii data.
 
-When receiving binary data, splot can save a file consisting of a json header including the data format (as specified as a numpy dtype string) and the data series names, followed by the binary data. It will only save complete messages; incomplete messages will be ignored. A helper function `read_serial_capture_binary` can be used to read this file and format it as a structured recarray, or an (unstructured) ndarray , e.g.,
+splot does not save "raw" data from the serial port; instead it saves only valid messages that adhere to the format specified.
+
+When receiving binary data, splot can save a file consisting of a json header including the data format (as specified as a numpy dtype) and the data series names, followed by the binary data. A helper function `read_serial_capture_binary` can be used to read this file and format it as a structured recarray, or an (unstructured) ndarray , e.g.,
 ```py
 import splot
 arr, series_names = splot.read_serial_capture_binary(
@@ -34,13 +39,21 @@ arr, series_names = splot.read_serial_capture_binary(
 )
 ```
 
-When receiving ascii data, splot simply records it as a csv file.
+When receiving ascii data, if the user requests data to be saved, splot records it as a comma-separated variable (csv) file.
+
+Sometimes it is important that received data be timestamped upon receipt. splot internally records timestamps when each packet is parsed, in usec. These timestamps can be optionally saved as well. For ascii data, this will simply be the last data column; for binary data, it will be the last 8 bytes of each message (uint64).
+
+# Network interfaces (ZMQ)
+splot includes some limited functionality to support additional users/programs accessing the serial port. When requested, splot will bind a port as a subscriber, to which publishers can publish data, which will be immediately forwarded (byte-for-byte) directly to the serial port. Conversely, splot can also bind a port as a publisher and directly relay serial data (raw bytes) to any and all connected subscribers.
+
 
 ### Possible future directions
 - Development:
     - Implementing a good test infrastructure for automated testing (possibly in CI)
 - UI:
     - switch between stacked plots and single plot with overlaid series
+- Serial interface:
+    - Serial transmit functionality
 - Data processing:
     - filters and averaging of signals (averaging is actually built into pyqtgraph; right click on a plot!)
     - Oscilloscope mode / triggered plotting
@@ -53,8 +66,6 @@ When receiving ascii data, splot simply records it as a csv file.
     - handle uart with different frame sizes (e.g., 9- or 10-bit frames)
     - handle other serialization formats, e.g. JSON or protobuf
     - long vs wide data formats
-- Serial interface:
-    - Serial send functionality (possibly out of scope?)
 
 ## Similar projects
 There are a number of similar projects out there from which splot takes inspiration, for example:
@@ -64,6 +75,13 @@ There are a number of similar projects out there from which splot takes inspirat
  - https://github.com/hacknus/serial-monitor-rust
 
 ## Changelog:
+- PR #17:
+    - Add option to plot with time as x axis
+        - Add usec timestamps to all messages
+        - Rework internal representation of data to use ringbuffer as numpy structured array
+        - Change UI dtype representation such that all fields in numpy dtype are scalars
+    - Add option to save timestamps (or not)
+    - In binary mode, do not include delimiter byte in dtype, nor save it
 - PR #14:
     - Changing data formats didn't work while connected, but works now.
 - PR #8:
