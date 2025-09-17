@@ -4,8 +4,8 @@ import logging
 from pathlib import Path
 import re
 import signal
-import socket
 import sys
+import multiprocessing
 import threading
 import time
 
@@ -16,8 +16,7 @@ import serial.tools.list_ports
 from PyQt6 import QtCore, QtWidgets, QtGui, uic
 import zmq
 
-from .serial_receiver import SerialReceiver
-from .stream_processor import StreamProcessor
+from .stream_processor import start_stream_processor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s")
 logger = logging.getLogger(__name__)
@@ -80,6 +79,12 @@ class Ui(QtWidgets.QMainWindow):
         ui_file_path = importlib.resources.files("splot") / "splot.ui"
         uic.loadUi(ui_file_path, self)
 
+        # stream processor runs in a separate process
+        # we communicate with that process via a pipe that enables RPCs
+        self.stream_processor_conn, child_conn = multiprocessing.Pipe()
+        self.stream_processor_process = multiprocessing.Process(target=start_stream_processor, args=(child_conn,))
+        self.stream_processor_process.start()
+
         self.settings = QtCore.QSettings("utilities", "splot")
         logger.info(f"Settings obtained from: {self.settings.fileName()}")
 
@@ -87,9 +92,6 @@ class Ui(QtWidgets.QMainWindow):
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_serial_ports)
         self.timer.start(300)
-
-        self.serial_receiver = None
-        self.stream_processor = None
 
         self.socket = None  # keep these around to properly close them
         self.serial_connection = None
@@ -128,7 +130,6 @@ class Ui(QtWidgets.QMainWindow):
 
         self.zmq_listener_thread = None
         self.zmq_listener_loop_running = False
-        self.zmq_emitter_conn = None
 
         self.start_time = time.time_ns() // 1000
 
@@ -173,91 +174,53 @@ class Ui(QtWidgets.QMainWindow):
         text = self.serialPortComboBox.currentText()
         if port is None:  # its either empty or a user-entered string
             if text == "(not connected)":
-                self.serial_connection = None
+                self.stream_processor_rpc("disconnect_from_serial")
                 return
-            else:
-                logger.info(f"Trying to connect to socket: {text}")
-                try:
-                    socket_type = socket.SOCK_DGRAM if text.startswith("udp://") else socket.SOCK_STREAM
-                    self.socket = socket.socket(socket.AF_INET, socket_type)
-                    host, port = text.rsplit(":")
-                    self.socket.connect((host, int(port)))
-                    read_function = self.socket.recv
-                except Exception as e:
-                    logger.error(f"Failed to connect to {text}. Error: {e}")
-                    return
+            self.stream_processor_rpc("connect_to_serial", is_socket=True, port=text)
         else:
-            logger.info(f"Trying to connect to serial port: {port}")
-            self.serial_connection = serial.Serial(
-                port,
+            self.stream_processor_rpc(
+                "connect_to_serial",
+                is_socket=False,
+                port=port,
                 baudrate=int(self.serialBaudRateComboBox.currentText()),
                 parity=self.serialParityComboBox.currentText(),
                 stopbits=float(self.serialStopBitsComboBox.currentText()),
-                timeout=0.001,
             )
-            read_function = self.serial_connection.read
 
-        self.serial_receiver = SerialReceiver(
-            read_function=read_function,
-            buffer_length=self.serialBufferSizeSpinBox.value(),
-            read_chunk_size=self.serialReadChunkSizeSpinBox.value(),
-            forward_conn=self.zmq_emitter_conn,
-        )
-        self.serial_receiver.data_rate.connect(lambda x: self.statusBar().showMessage(f"Data rate: {x} bytes/sec"))
-
-        self.initialize_stream_processor()
-
-        self.serial_receiver.start()
         self.enable_ui_elements_on_connection(connected=True)
         self.plot_timer.start(33)
 
-    def initialize_stream_processor(self):
-        """Create a new StreamProcessor based on the current UI settings.
+    def data_format_updated(self):
+        """Update StreamProcessor's data format based on the current UI settings.
 
         Also triggers creating a new plot series.
         """
-        if self.serial_receiver is None:
-            # stream processor doesn't do anything unless we're connected, and will
-            # be instantiated upon connection in `connect_to_serial()`
-            return
 
         binary = self.dataFormatComboBox.currentText() == "binary"
         if binary:
             delimiter = self.binaryMessageDelimiterSpinBox.value()
+            delimiter = int(delimiter) % 256
         else:
             delimiter = self.asciiMessageDelimiterLineEdit.text()
+            # interpret escape characters correctly
+            delimiter = bytes(delimiter, "utf-8").decode("unicode_escape")
 
         parsed_dtype_string = parse_splot_dtype_string(self.binaryDtypeStringLineEdit.text())
 
-        self.stream_processor = StreamProcessor(
-            serial_receiver=self.serial_receiver,
-            plot_buffer_length=self.plotLengthSpinBox.value(),
+        self.stream_processor_rpc(
+            "configure_message_format",
             message_delimiter=delimiter,
             binary=binary,
             binary_dtype_string=parsed_dtype_string,
             ascii_num_streams=self.numberOfStreamsSpinBox.value(),
-            paused=self.pausePushButton.isChecked(),
         )
 
-        self.serial_receiver.data_received.connect(self.stream_processor.process_new_data)
-
-        self.create_plot_series(num_streams=self.stream_processor.get_num_streams())
+        num_streams = self.stream_processor_rpc("get_num_streams")
+        self.create_plot_series(num_streams=num_streams)
 
     def disconnect_from_serial(self):
         self.plot_timer.stop()
-        if self.stream_processor is not None:
-            self.stream_processor = None
-
-        if self.serial_receiver is not None:
-            self.serial_receiver.stop()
-            self.serial_receiver.wait()
-            self.serial_receiver.disconnect()  # disconnect all slots
-            self.serial_receiver = None
-
-        if self.serial_connection is not None:
-            self.serial_connection.close()
-        if self.socket is not None:
-            self.socket.close()
+        self.stream_processor_rpc("disconnect_from_serial")
 
         self.savePushButton.setChecked(False)
         self.enable_ui_elements_on_connection(connected=False)
@@ -329,6 +292,9 @@ class Ui(QtWidgets.QMainWindow):
             line.setVisible(x_axis_choice != "time (s)")
 
     def update_stream_plots(self):
+        # TODO
+        return
+
         data = self.stream_processor.plot_buffer.get_valid_buffer().copy()
         cursor_x = self.stream_processor.plot_buffer._write_ptr
 
@@ -364,7 +330,6 @@ class Ui(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(int)
     def on_serialPortComboBox_currentIndexChanged(self, index):
-        logger.info(f"you changed the serial port to index {index}!")
         self.disconnect_from_serial()
         self.connect_to_serial()
 
@@ -400,29 +365,29 @@ class Ui(QtWidgets.QMainWindow):
         self.binaryMessageDelimiterLabel.setEnabled(binary)
         self.asciiMessageDelimiterLineEdit.setEnabled(not binary)
         self.asciiMessageDelimiterLabel.setEnabled(not binary)
-        self.initialize_stream_processor()
+        self.data_format_updated()
 
     @QtCore.pyqtSlot()
     def on_asciiMessageDelimiterLineEdit_editingFinished(self):
         value = self.asciiMessageDelimiterLineEdit.text()
         self.settings.setValue("ui/asciiMessageDelimiter", value)
-        self.initialize_stream_processor()
+        self.data_format_updated()
 
     @QtCore.pyqtSlot(int)
     def on_binaryMessageDelimiterSpinBox_valueChanged(self, value):
         self.settings.setValue("ui/binaryMessageDelimiter", value)
-        self.initialize_stream_processor()
+        self.data_format_updated()
 
     @QtCore.pyqtSlot()
     def on_binaryDtypeStringLineEdit_editingFinished(self):
         value = self.binaryDtypeStringLineEdit.text()
         self.settings.setValue("ui/binaryDtypeString", value)
-        self.initialize_stream_processor()
+        self.data_format_updated()
 
     @QtCore.pyqtSlot(int)
     def on_numberOfStreamsSpinBox_valueChanged(self, value):
         self.settings.setValue("ui/numberOfStreams", value)
-        self.initialize_stream_processor()
+        self.data_format_updated()
 
     @QtCore.pyqtSlot(int)
     def on_seriesSelectorSpinBox_valueChanged(self, series_index):
@@ -465,12 +430,12 @@ class Ui(QtWidgets.QMainWindow):
         if checked:
             series_names = [plot.getAxis("left").labelText for plot in self.plots]
             # give info to stream processor to open a file and start saving
-            full_path = self.stream_processor.start_saving(
+            self.stream_processor_rpc(
+                "start_saving",
                 save_location=self.saveLocationLabel.text(),
                 save_timestamps=self.saveTimestampsCheckBox.isChecked(),
                 series_names=series_names,
             )
-            logger.info(f"Creating file for saving data: {full_path}")
 
             # let the user know we're saving, change the button's function to "stop saving"
             self.savePushButton.setText("Stop saving")
@@ -480,9 +445,7 @@ class Ui(QtWidgets.QMainWindow):
             # stop recording data
             self.savePushButton.setText("Save data")
             self.saveTimestampsCheckBox.setEnabled(True)
-            logger.info("Closing save file.")
-            if self.stream_processor:
-                self.stream_processor.stop_saving()
+            self.stream_processor_rpc("stop_saving")
 
     @QtCore.pyqtSlot(bool)
     def on_saveTimestampsCheckBox_clicked(self, checked):
@@ -501,25 +464,20 @@ class Ui(QtWidgets.QMainWindow):
         if checked:
             port = self.emitDataPortSpinBox.value()
             try:
-                self.zmq_emitter_conn = zmq.Context().socket(zmq.PUB)
-                self.zmq_emitter_conn.bind(f"tcp://*:{port}")
+                self.stream_processor_rpc("start_zmq_forwarding", port=port)
                 self.emitDataPortSpinBox.setEnabled(False)
-                logger.info(f"Now forwarding serial data to tcp://*:{port}")
-            except zmq.ZMQError:
-                logger.error(f"Unable to bind port {port} for publishing serial data.")
-                self.emitDataCheckBox.setChecked(False)
-                return
-
-            # pass conn to serial receiver
-            if self.serial_receiver:
-                self.serial_receiver.forward_conn = self.zmq_emitter_conn
-
+            except Exception:
+                self.emitDataPortSpinBox.setChecked(False)
         elif not checked:
-            self.emitDataPortSpinBox.setEnabled(True)
-            if self.zmq_emitter_conn:
-                self.zmq_emitter_conn.close()
-            if self.serial_receiver:
-                self.serial_receiver.forward_conn = None
+            self.stream_processor_rpc("stop_zmq_forwarding", port=port)
+
+    def stream_processor_rpc(self, method: str, *args, **kwargs):
+        command = {"method": method, "args": args, "kwargs": kwargs}
+        self.stream_processor_conn.send(command)
+        value = self.stream_processor_conn.recv()
+        if isinstance(value, Exception):
+            raise value
+        return value
 
     @QtCore.pyqtSlot(bool)
     def on_receiveDataCheckBox_clicked(self, checked):
@@ -561,13 +519,10 @@ class Ui(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(int)
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
         self.settings.setValue("ui/plotLength", plot_buffer_length)
-        if self.stream_processor is not None:
-            self.stream_processor.change_plot_buffer_length(plot_buffer_length)
+        # TODO
 
     @QtCore.pyqtSlot(bool)
     def on_pausePushButton_clicked(self, checked):
-        if self.stream_processor is not None:
-            self.stream_processor.paused = checked
         if checked:
             self.plot_timer.stop()
         else:

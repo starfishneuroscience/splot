@@ -833,7 +833,7 @@
                 <item row="2" column="0" colspan="2">
                  <widget class="QPushButton" name="pausePushButton">
                   <property name="text">
-                   <string>Pause</string>
+                   <string>Pause plotting</string>
                   </property>
                   <property name="checkable">
                    <bool>true</bool>
