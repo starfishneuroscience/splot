@@ -40,13 +40,13 @@
         <number>0</number>
        </property>
        <property name="topMargin">
-        <number>1</number>
+        <number>0</number>
        </property>
        <property name="rightMargin">
         <number>0</number>
        </property>
        <property name="bottomMargin">
-        <number>1</number>
+        <number>0</number>
        </property>
        <item>
         <widget class="QFrame" name="sourceFrame_2">
@@ -73,10 +73,10 @@
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
           </property>
           <property name="topMargin">
-           <number>1</number>
+           <number>0</number>
           </property>
           <property name="bottomMargin">
-           <number>1</number>
+           <number>0</number>
           </property>
           <item row="0" column="0">
            <widget class="QLabel" name="sourceLabel">
@@ -177,10 +177,7 @@
                 </font>
                </property>
                <property name="autoFillBackground">
-                <bool>true</bool>
-               </property>
-               <property name="styleSheet">
-                <string notr="true"/>
+                <bool>false</bool>
                </property>
                <property name="title">
                 <string>Serial parameters</string>
@@ -851,12 +848,6 @@
           </item>
           <item>
            <widget class="QFrame" name="rightFrame">
-            <property name="autoFillBackground">
-             <bool>false</bool>
-            </property>
-            <property name="styleSheet">
-             <string notr="true"/>
-            </property>
             <property name="frameShape">
              <enum>QFrame::StyledPanel</enum>
             </property>
