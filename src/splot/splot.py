@@ -192,7 +192,7 @@ class Ui(QtWidgets.QMainWindow):
                 baudrate=int(self.serialBaudRateComboBox.currentText()),
                 parity=self.serialParityComboBox.currentText(),
                 stopbits=float(self.serialStopBitsComboBox.currentText()),
-                timeout=0.010,
+                timeout=0.001,
             )
             read_function = self.serial_connection.read
 
@@ -480,7 +480,8 @@ class Ui(QtWidgets.QMainWindow):
             self.savePushButton.setText("Save data")
             self.saveTimestampsCheckBox.setEnabled(True)
             logger.info("Closing save file.")
-            self.stream_processor.stop_saving()
+            if self.stream_processor:
+                self.stream_processor.stop_saving()
 
     @QtCore.pyqtSlot(int)
     def on_receiveDataPortSpinBox_valueChanged(self, value):
