@@ -76,10 +76,11 @@ There are a number of similar projects out there from which splot takes inspirat
 
 ## Changelog:
 - PR #17:
-    - Add usec timestamps to all messages
+    - Add option to plot with time as x axis
+        - Add usec timestamps to all messages
+        - Rework internal representation of data to use ringbuffer as numpy structured array
+        - Change UI dtype representation such that all fields in numpy dtype are scalars
     - Add option to save timestamps (or not)
-    - Rework internal representation of data to use ringbuffer as numpy structured array
-    - Change UI dtype representation such that all fields in numpy dtype are scalars
     - In binary mode, do not include delimiter byte in dtype, nor save it
 - PR #14:
     - Changing data formats didn't work while connected, but works now.
