@@ -55,7 +55,6 @@ splot includes some limited functionality to support additional users/programs a
 - Serial interface:
     - Serial transmit functionality
 - Data processing:
-    - plotting with timestamp as x-axis
     - filters and averaging of signals (averaging is actually built into pyqtgraph; right click on a plot!)
     - Oscilloscope mode / triggered plotting
     - Error detection:
