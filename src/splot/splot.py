@@ -266,10 +266,9 @@ class Ui(QtWidgets.QMainWindow):
             self.plots.append(plot)
             self.plot_cursor_lines.append(line)
 
-            # plot.setRange(xRange=(0, self.plotLengthSpinBox.value()))
+            # make scrolling zoom in x axis only, not y
             vb = plot.getViewBox()
             vb.setMouseEnabled(x=True, y=False)
-            # vb.setLimits(xMin=0, xMax=self.plotLengthSpinBox.value())
 
         # default to plot_type = 0 if no QSettings entry exists
         settings_plot_types = [self.settings.value(f"ui/seriesPlotType[{i}]") for i in range(num_streams)]

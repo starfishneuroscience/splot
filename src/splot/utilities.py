@@ -1,9 +1,8 @@
 import json
 import numpy as np
-from numpy.lib import recfunctions as rfn
 
 
-def read_serial_capture_binary(filename, structured=False):
+def read_serial_capture_binary(filename):
     """Load a splot serial_capture data file, which begins with a json header,
     immediately followed by binary data (in the format specified in the header).
 
@@ -30,11 +29,4 @@ def read_serial_capture_binary(filename, structured=False):
         file.seek(binary_start_index)
         structured_data = np.fromfile(file, binary_dtype)
 
-    if structured:
-        return structured_data, columns
-
-    # flatten a potentially nested data type down to scalars
-    data = rfn.structured_to_unstructured(structured_data)
-    data = data[:, 1:]  # drop 1st column, it's the delimiter which is constant by definition
-
-    return data, columns
+    return structured_data, columns
