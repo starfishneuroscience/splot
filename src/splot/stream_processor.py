@@ -247,16 +247,23 @@ class StreamProcessor:
                     line += "," + str(timestamp)
                 self.save_file.write(line + "\n")
 
+        # print(f'parsed {len(message_numbers)} valid messages, returning {buffer[num_bytes_read:]}')
+        # print(message_numbers[0])
+
         # return leftover (unprocessed) data
         return buffer[num_bytes_read:]
 
     def process_binary(self, buffer, timestamp):
-        new_data = np.array(buffer)
+        new_data = np.array(bytearray(buffer))
         expected_length = self.binary_dtype.itemsize  # does not include delimiter byte
         num_bytes_read = len(buffer)
 
         # preliminary pass - split on delimiter
-        delimiter_indices = np.where(new_data == self.message_delimiter)[0]
+        try:
+            delimiter_indices = np.where(new_data == self.message_delimiter)[0]
+        except ValueError as e:
+            print(f"{new_data=} {self.message_delimiter=}")
+            raise e
         if len(delimiter_indices) == 0:
             return buffer
 
@@ -290,6 +297,8 @@ class StreamProcessor:
             # we received either an incomplete packet, or 1+ invalid packets
             return buffer[num_bytes_read:]
 
+        # print(f'parsed {len(messages)} valid messages, returning {buffer[num_bytes_read:]}')
+
         # messages to streams (e.g. 8 byte message to 2 uint8s, 1 uint16, 1 uint32):
         # the numpy parser is amazing, see docs:
         #   https://numpy.org/doc/stable/reference/arrays.dtypes.html#arrays-dtypes-constructing
@@ -311,6 +320,10 @@ class StreamProcessor:
 
         return buffer[num_bytes_read:]
 
+    def get_new_messages(self):
+        return self.message_buffer.read_new()
+
     def close(self):
         self.running = False
         self.stop_saving()
+        self.disconnect_from_serial()

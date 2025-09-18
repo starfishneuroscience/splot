@@ -17,6 +17,7 @@ from PyQt6 import QtCore, QtWidgets, QtGui, uic
 import zmq
 
 from .stream_processor import start_stream_processor
+from .ring_buffer import RingBuffer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s")
 logger = logging.getLogger(__name__)
@@ -133,6 +134,8 @@ class Ui(QtWidgets.QMainWindow):
 
         self.start_time = time.time_ns() // 1000
 
+        self.plot_buffer = RingBuffer(self.plotLengthSpinBox.value(), adaptive_dtype=True)
+
     def populate_serial_options(self):
         option_map = {
             self.serialBaudRateComboBox: serial.serialutil.SerialBase.BAUDRATES,
@@ -189,6 +192,7 @@ class Ui(QtWidgets.QMainWindow):
 
         self.enable_ui_elements_on_connection(connected=True)
         self.plot_timer.start(33)
+        self.statusBar().showMessage("Connected.")
 
     def data_format_updated(self):
         """Update StreamProcessor's data format based on the current UI settings.
@@ -292,11 +296,11 @@ class Ui(QtWidgets.QMainWindow):
             line.setVisible(x_axis_choice != "time (s)")
 
     def update_stream_plots(self):
-        # TODO
-        return
+        new_data = self.stream_processor_rpc("get_new_messages")
+        self.plot_buffer.add(new_data)
+        cursor_x = self.plot_buffer._write_ptr
 
-        data = self.stream_processor.plot_buffer.get_valid_buffer().copy()
-        cursor_x = self.stream_processor.plot_buffer._write_ptr
+        data = self.plot_buffer.get_valid_buffer()
 
         use_timestamp = self.xAxisChoiceComboBox.currentText() == "time (s)"
         if use_timestamp:
@@ -326,7 +330,8 @@ class Ui(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         """This function is called when the main window is closed"""
-        self.disconnect_from_serial()
+        self.stream_processor_rpc("close")
+        self.stop_zmq_listener()
 
     @QtCore.pyqtSlot(int)
     def on_serialPortComboBox_currentIndexChanged(self, index):
@@ -469,7 +474,7 @@ class Ui(QtWidgets.QMainWindow):
             except Exception:
                 self.emitDataPortSpinBox.setChecked(False)
         elif not checked:
-            self.stream_processor_rpc("stop_zmq_forwarding", port=port)
+            self.stream_processor_rpc("stop_zmq_forwarding")
 
     def stream_processor_rpc(self, method: str, *args, **kwargs):
         command = {"method": method, "args": args, "kwargs": kwargs}
@@ -500,11 +505,13 @@ class Ui(QtWidgets.QMainWindow):
             self.zmq_listener_thread.start()
 
         elif not checked:
-            # tear down listener loop thread if it exists
-            self.zmq_listener_loop_running = False
-            if self.zmq_listener_thread:
-                self.zmq_listener_thread.join()
-            self.receiveDataPortSpinBox.setEnabled(True)
+            self.stop_zmq_listener()
+
+    def stop_zmq_listener(self):
+        self.zmq_listener_loop_running = False
+        if self.zmq_listener_thread:
+            self.zmq_listener_thread.join()
+        self.receiveDataPortSpinBox.setEnabled(True)
 
     def zmq_listener_loop(self, conn):
         self.zmq_listener_loop_running = True
@@ -519,7 +526,7 @@ class Ui(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(int)
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
         self.settings.setValue("ui/plotLength", plot_buffer_length)
-        # TODO
+        self.plot_buffer = RingBuffer(plot_buffer_length, adaptive_dtype=True)
 
     @QtCore.pyqtSlot(bool)
     def on_pausePushButton_clicked(self, checked):

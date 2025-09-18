@@ -9,7 +9,7 @@ while True:
     conn, address = server_socket.accept()  # accept new connection
     counter = 0
     while True:
-        delimiter = 42
+        delimiter = 170
         x1 = int(np.random.rand() * 255)
         x2 = int(np.sin(time.time() * 1) * 2**15)
         x3 = int(np.sin(time.time() * 10) * 2**15)
