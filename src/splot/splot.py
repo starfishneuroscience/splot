@@ -466,6 +466,7 @@ class Ui(QtWidgets.QMainWindow):
                 self.stream_processor_rpc("start_zmq_forwarding", port=port)
                 self.emitDataPortSpinBox.setEnabled(False)
             except Exception:
+                logger.error(f"Cannot forward serial to zmq; Unable to bind port {port}")
                 self.emitDataPortSpinBox.setChecked(False)
         elif not checked:
             self.stream_processor_rpc("stop_zmq_forwarding")
@@ -483,13 +484,13 @@ class Ui(QtWidgets.QMainWindow):
         if checked:
             try:
                 port = self.receiveDataPortSpinBox.value()
-                self.stream_processor_rpc("start_zmq_forwarding", port=port)
+                self.stream_processor_rpc("start_zmq_listener", port=port)
                 self.receiveDataPortSpinBox.setEnabled(False)
             except Exception:
-                logger.error(f"Unable to bind port {port} for receiving data to forward to serial.")
+                logger.error(f"Cannot forward zmq data to serial; Unable to bind port {port}")
                 self.receiveDataCheckBox.setChecked(False)
         elif not checked:
-            self.stream_processor_rpc("stop_zmq_forwarding")
+            self.stream_processor_rpc("stop_zmq_listener")
 
     @QtCore.pyqtSlot(int)
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):

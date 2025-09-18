@@ -167,17 +167,20 @@ class StreamProcessor:
         if self.zmq_forwarding_conn:
             self.zmq_forwarding_conn.close()
             self.zmq_forwarding_conn = None
+            logger.info("Stopping serial->zmq forwarding")
 
     def start_zmq_listener(self, port):
         self.zmq_listener_conn = zmq.Context().socket(zmq.SUB)
         self.zmq_listener_conn.bind(f"tcp://*:{port}")
         self.zmq_listener_conn.setsockopt(zmq.RCVTIMEO, 0)
         self.zmq_listener_conn.subscribe(b"")
+        logger.info(f"Now forwarding tcp://*:{port} to serial")
 
     def stop_zmq_listener(self):
         if self.zmq_listener_conn:
             self.zmq_listener_conn.close()
             self.zmq_listener_conn = None
+            logger.info("Stopping zmq->serial forwarding")
 
     def run(self):
         self.running = True
