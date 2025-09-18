@@ -146,8 +146,6 @@ class Ui(QtWidgets.QMainWindow):
             "ui/serialBaudRate": self.serialBaudRateComboBox.setCurrentText,
             "ui/serialParityIndex": lambda x: self.serialParityComboBox.setCurrentIndex(int(x)),
             "ui/serialStopBitsIndex": lambda x: self.serialStopBitsComboBox.setCurrentIndex(int(x)),
-            "ui/serialReadChunkSize": lambda x: self.serialReadChunkSizeSpinBox.setValue(int(x)),
-            "ui/serialBufferSize": lambda x: self.serialBufferSizeSpinBox.setValue(int(x)),
             "ui/numberOfStreams": lambda x: self.numberOfStreamsSpinBox.setValue(int(x)),
             "ui/dataFormatIndex": lambda x: self.dataFormatComboBox.setCurrentIndex(int(x)),
             "ui/asciiMessageDelimiter": self.asciiMessageDelimiterLineEdit.setText,
@@ -226,7 +224,7 @@ class Ui(QtWidgets.QMainWindow):
 
     def enable_ui_elements_on_connection(self, connected: bool):
         self.serialParametersGroupBox.setEnabled(not connected)
-        self.seriesPropertyGroupBox.setEnabled(connected)
+        self.seriesConfigurationGroupBox.setEnabled(connected)
         self.savePushButton.setEnabled(connected)
 
     def update_serial_ports(self):
@@ -289,11 +287,13 @@ class Ui(QtWidgets.QMainWindow):
         for line in self.plot_cursor_lines:
             line.setVisible(x_axis_choice != "time (s)")
 
-    def update_stream_plots(self):
+    def get_new_data_from_stream_processor(self):
         new_data = self.stream_processor_rpc("get_new_messages")
         self.plot_buffer.add(new_data)
-        cursor_x = self.plot_buffer._write_ptr
 
+    def update_stream_plots(self):
+        self.get_new_data_from_stream_processor()
+        cursor_x = self.plot_buffer._write_ptr
         data = self.plot_buffer.get_valid_buffer()
 
         use_timestamp = self.xAxisChoiceComboBox.currentText() == "time (s)"
@@ -323,9 +323,7 @@ class Ui(QtWidgets.QMainWindow):
                 series.setData(x, stream_data, connect="finite", stepMode=step_mode)
 
     def closeEvent(self, event):
-        """This function is called when the main window is closed"""
         self.stream_processor_rpc("close")
-        self.stop_zmq_listener()
 
     @QtCore.pyqtSlot(int)
     def on_serialPortComboBox_currentIndexChanged(self, index):
@@ -343,14 +341,6 @@ class Ui(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(int)
     def on_serialStopBitsComboBox_currentIndexChanged(self, index):
         self.settings.setValue("ui/serialStopBitsIndex", index)
-
-    @QtCore.pyqtSlot(int)
-    def on_serialReadChunkSizeSpinBox_valueChanged(self, value):
-        self.settings.setValue("ui/serialReadChunkSize", value)
-
-    @QtCore.pyqtSlot(int)
-    def on_serialBufferSizeSpinBox_valueChanged(self, value):
-        self.settings.setValue("ui/serialBufferSize", value)
 
     @QtCore.pyqtSlot(int)
     def on_dataFormatComboBox_currentIndexChanged(self, index):
@@ -390,6 +380,8 @@ class Ui(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(int)
     def on_seriesSelectorSpinBox_valueChanged(self, series_index):
+        if series_index not in self.plots:
+            return
         # update the series property boxes appropriately
         self.seriesVisibleCheckBox.setChecked(self.plots[series_index].isVisible())
         self.seriesPlotTypeComboBox.setCurrentIndex(self.plot_types[series_index])

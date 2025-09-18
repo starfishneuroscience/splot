@@ -161,7 +161,7 @@ class StreamProcessor:
         self.stop_zmq_forwarding()
         self.zmq_forwarding_conn = zmq.Context().socket(zmq.PUB)
         self.zmq_forwarding_conn.bind(f"tcp://*:{port}")
-        logger.info(f"Now forwarding serial data to tcp://*:{port}")
+        logger.info(f"Bound tcp://*:{port}, raw serial data will be published on this port")
 
     def stop_zmq_forwarding(self):
         if self.zmq_forwarding_conn:
@@ -174,7 +174,7 @@ class StreamProcessor:
         self.zmq_listener_conn.bind(f"tcp://*:{port}")
         self.zmq_listener_conn.setsockopt(zmq.RCVTIMEO, 0)
         self.zmq_listener_conn.subscribe(b"")
-        logger.info(f"Now forwarding tcp://*:{port} to serial")
+        logger.info(f"Bound tcp://*:{port}; incoming data will be forwarded to serial")
 
     def stop_zmq_listener(self):
         if self.zmq_listener_conn:
@@ -214,9 +214,9 @@ class StreamProcessor:
             try:
                 read = self.serial_read_function(1_000_000)
             except OSError:
-                logger.error("Couldn't read from connection. Stopping stream processor.")
+                logger.error("Couldn't read from connection. Disconnecting.")
                 self.disconnect_from_serial()
-                break
+                continue
 
             if len(read) == 0:
                 continue

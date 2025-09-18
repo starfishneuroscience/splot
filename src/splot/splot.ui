@@ -649,7 +649,7 @@
               </spacer>
              </item>
              <item>
-              <widget class="QGroupBox" name="seriesPropertyGroupBox">
+              <widget class="QGroupBox" name="seriesConfigurationGroupBox">
                <property name="enabled">
                 <bool>true</bool>
                </property>

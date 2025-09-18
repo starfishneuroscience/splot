@@ -17,10 +17,6 @@ class RingBuffer:
             n = len(new_data)
         except TypeError:
             new_data = np.array([new_data], dtype=self._buffer.dtype)
-            n = 1
-
-        if n == 0:
-            return
 
         try:
             new_data = np.array(new_data, dtype=self._buffer.dtype)
@@ -40,6 +36,9 @@ class RingBuffer:
                     f"\n{new_data=}"
                     f"\n{e=}"
                 )
+
+        if len(new_data) == 0:
+            return
 
         if n > len(self._buffer):
             # received more data than fits in the buffer, so just store the most recent data
