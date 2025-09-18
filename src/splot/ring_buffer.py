@@ -2,9 +2,8 @@ import numpy as np
 
 
 class RingBuffer:
-    def __init__(self, buffer_length, dtype="B", adaptive_dtype=False, ignore_incompatible_dtype=False):
+    def __init__(self, buffer_length, dtype="B", adaptive_dtype=False):
         self._buffer = np.empty((buffer_length,), dtype=dtype)
-        self._ignore_incompatible_dtype = ignore_incompatible_dtype
         self._adaptive_dtype = adaptive_dtype
 
         self._read_ptr = 0
@@ -33,8 +32,6 @@ class RingBuffer:
                 self._overflow_since_last_read = False
                 self._overflow_flag = False
                 self._full_buffer_valid = False
-            elif self._ignore_incompatible_dtype:
-                return
             else:
                 raise TypeError(
                     f"Incompatible data type added to ringbuffer. "

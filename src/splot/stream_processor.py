@@ -213,7 +213,7 @@ class StreamProcessor:
             new_data = buffer.decode("ascii")
         except Exception as e:
             logger.error(f"Couldn't decode data as ascii, exception: {e}")
-            return b""
+            return bytearray(b"")
 
         if self.message_delimiter not in new_data:
             return buffer
@@ -254,18 +254,17 @@ class StreamProcessor:
         return buffer[num_bytes_read:]
 
     def process_binary(self, buffer, timestamp):
-        new_data = np.array(bytearray(buffer))
+        new_data = np.array(buffer)
         expected_length = self.binary_dtype.itemsize  # does not include delimiter byte
         num_bytes_read = len(buffer)
 
         # preliminary pass - split on delimiter
-        try:
-            delimiter_indices = np.where(new_data == self.message_delimiter)[0]
-        except ValueError as e:
-            print(f"{new_data=} {self.message_delimiter=}")
-            raise e
+        delimiter_indices = np.where(new_data == self.message_delimiter)[0]
         if len(delimiter_indices) == 0:
-            return buffer
+            # buffer could grow without bounds if no delimiter is ever included.
+            # if its longer than a message, but has no delimiter, can safely chop off
+            # anything more than 1 message length ago.
+            return buffer[-expected_length:]
 
         # remove delimiters that would make messages too short (must be part of data)
         valid_delimiter_indices = [delimiter_indices[0]]

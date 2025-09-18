@@ -533,6 +533,8 @@ class Ui(QtWidgets.QMainWindow):
         if checked:
             self.plot_timer.stop()
         else:
+            # flush streamprocessor buffer, then start getting new data
+            self.stream_processor_rpc("get_new_messages")
             self.plot_timer.start(33)
 
 
