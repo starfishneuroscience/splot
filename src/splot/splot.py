@@ -38,34 +38,28 @@ def parse_splot_dtype_string(text):
     return re.sub(pattern, replacer, text)
 
 
-def vector_to_bit_raster(dat: np.ndarray[int], max_bit_index: int = None):
+def vector_to_bit_traces(dat: np.ndarray[int], num_bits: int = None):
     """Take a vector of integers and return plotting vectors x and y.
-    :returns: vectors x and y such that plotting x vs y yields vertical line segments
-        at each index when a given bit is 1. E.g., if dat[3] == 5, then x and y will
-        include two line segments at x=3 around y=0 and y=2. Note that this data must
-        be plotted with pyqtgraph's `connect='pairs'` argument.
+    :returns: vectors x and y such that plotting x vs y yields traces for each individual
+        bit, with each bit trace separate by a y=nan entry
     """
+    if num_bits is None:
+        if np.issubdtype(dat.dtype, np.integer):
+            num_bits = dat.dtype.itemsize * 8
+        elif not all(np.isnan(dat)) and np.nanmax(dat) > 0 and np.isfinite(np.nanmax(dat)):
+            num_bits = int(np.ceil(np.log2(np.nanmax(dat))))
+        else:
+            num_bits = 8
+
     x = []
     y = []
-
-    if max_bit_index is None:
-        if not all(np.isnan(dat)) and np.nanmax(dat) > 0 and np.isfinite(np.nanmax(dat)):
-            max_bit_index = int(np.ceil(np.log2(np.nanmax(dat))))
-        else:
-            max_bit_index = 7
-
-    # analyze only non-zero indices for speed (sparsity assumption)
-    non_zero_indices = np.where(dat > 0)[0]
-
-    # go through each bit up to max_bit_value and add vertical lines of height 0.8 at each x position
-    for bit_index in range(max_bit_index):
-        ind = np.where(dat[non_zero_indices].astype(int) & (1 << bit_index))[0]
-        x.append(np.repeat(non_zero_indices[ind], 2))
-        y.append(np.tile([bit_index - 0.4, bit_index + 0.4], len(ind)))
-
-    # add horizontal lines for each bit (so that all less-significant bits will still get plotted)
-    x.append(np.tile([0, len(dat)], max_bit_index + 1))
-    y.append(np.concatenate([[i, i] for i in range(max_bit_index + 1)]))
+    for bit_index in range(num_bits):
+        seq = (dat.astype(int) >> bit_index) & 1
+        ind = np.concatenate([[0], np.where(np.diff(seq) != 0)[0] + 1, [len(seq) - 1]])
+        x.append(ind)
+        y.append(bit_index + seq[ind] * 0.8)
+        x.append([np.nan])
+        y.append([np.nan])
 
     x = np.concatenate(x)
     y = np.concatenate(y)
@@ -272,6 +266,11 @@ class Ui(QtWidgets.QMainWindow):
             self.plots.append(plot)
             self.plot_cursor_lines.append(line)
 
+            # plot.setRange(xRange=(0, self.plotLengthSpinBox.value()))
+            vb = plot.getViewBox()
+            vb.setMouseEnabled(x=True, y=False)
+            # vb.setLimits(xMin=0, xMax=self.plotLengthSpinBox.value())
+
         # default to plot_type = 0 if no QSettings entry exists
         settings_plot_types = [self.settings.value(f"ui/seriesPlotType[{i}]") for i in range(num_streams)]
         self.plot_types = [0 if x is None else int(x) for x in settings_plot_types]
@@ -307,20 +306,22 @@ class Ui(QtWidgets.QMainWindow):
             if not use_timestamp:
                 self.plot_cursor_lines[i].setValue(cursor_x)
 
-            if self.plot_types[i] == 1:  # raster
-                # convert data to raster (series of line segments)
-                x, y = vector_to_bit_raster(stream_data)
+            if self.plot_types[i] == 1:  # bit mask traces
+                x, y = vector_to_bit_traces(stream_data)
+                # x must be float to correctly plot trace breaks
                 if use_timestamp:
-                    x = (data["timestamp_usec"][x] - self.start_time) / 1e6
-                series.setData(x, y, connect="pairs")
-            else:
+                    nan_indices = np.where(np.isnan(x))
+                    with np.errstate(invalid="ignore"):
+                        idx = x.astype(int)
+                    x = (data["timestamp_usec"][idx] - self.start_time) / 1e6
+                    x[nan_indices] = np.nan
+                series.setData(x, y, connect="finite", stepMode="right")
+            else:  # analog plot
                 if use_timestamp:
                     x = (data["timestamp_usec"] - self.start_time) / 1e6
-                    step_mode = "right"
                 else:
                     x = np.arange(len(stream_data))
-                    step_mode = None
-                series.setData(x, stream_data, connect="finite", stepMode=step_mode)
+                series.setData(x, stream_data, connect="finite", stepMode=None)
 
     def closeEvent(self, event):
         self.stream_processor_rpc("close")

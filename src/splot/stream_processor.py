@@ -126,7 +126,7 @@ class StreamProcessor:
         self.message_buffer = RingBuffer(self.message_buffer_length, dtype=self.complete_message_dtype)
 
     def get_num_streams(self):
-        return len(self.binary_dtype) if self.binary else self.ascii_num_streams
+        return len(self.binary_dtype.descr) if self.binary else self.ascii_num_streams
 
     def start_saving(self, save_location: str, save_timestamps: bool, series_names: list[str]) -> str:
         # start recording data
@@ -272,9 +272,6 @@ class StreamProcessor:
                     line += "," + str(timestamp)
                 self.save_file.write(line + "\n")
 
-        # print(f'parsed {len(message_numbers)} valid messages, returning {buffer[num_bytes_read:]}')
-        # print(message_numbers[0])
-
         # return leftover (unprocessed) data
         return buffer[num_bytes_read:]
 
@@ -283,29 +280,32 @@ class StreamProcessor:
         expected_length = self.binary_dtype.itemsize  # does not include delimiter byte
         num_bytes_read = len(buffer)
 
-        # preliminary pass - split on delimiter
+        # find delimiters so we can split array based on them
         delimiter_indices = np.where(new_data == self.message_delimiter)[0]
+
         if len(delimiter_indices) == 0:
             # buffer could grow without bounds if no delimiter is ever included.
             # if its longer than a message, but has no delimiter, can safely chop off
             # anything more than 1 message length ago.
-            return buffer[-expected_length:]
+            return buffer[-(expected_length + 1) :]
 
-        # remove delimiters that would make messages too short (must be part of data)
+        # remove delimiters that would make messages too short (must be part of message)
         valid_delimiter_indices = [delimiter_indices[0]]
         for index in delimiter_indices:
             if index - valid_delimiter_indices[-1] >= expected_length:
                 valid_delimiter_indices += [index]
-        if valid_delimiter_indices[0] == 0:
-            valid_delimiter_indices.pop(0)
         messages = np.split(new_data, valid_delimiter_indices)
 
-        # drop delimiter byte from each message
-        messages = [x[1:] for x in messages]
+        # if data started with delimiter, split will return empty first array
+        if len(messages[0]) == 0:
+            messages = messages[1:]
+
+        # drop delimiter byte from each message (after np.split, messages *begin* with delimiter)
+        messages = [x[1:] for x in messages if x[0] == self.message_delimiter]
 
         # check if last message is truncated, and if so, remove it
         if len(messages[-1]) < expected_length:
-            num_bytes_read -= len(messages[-1])
+            num_bytes_read -= len(messages[-1]) + 1  # add 1 for separator byte
             messages = messages[:-1]
 
         # remove any invalid messages with extra bytes
@@ -320,8 +320,6 @@ class StreamProcessor:
         if len(messages) == 0:
             # we received either an incomplete packet, or 1+ invalid packets
             return buffer[num_bytes_read:]
-
-        # print(f'parsed {len(messages)} valid messages, returning {buffer[num_bytes_read:]}')
 
         # messages to streams (e.g. 8 byte message to 2 uint8s, 1 uint16, 1 uint32):
         # the numpy parser is amazing, see docs:
