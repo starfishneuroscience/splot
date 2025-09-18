@@ -55,6 +55,7 @@ class StreamProcessor:
         self.csv_writer = None
 
         self.zmq_forwarding_conn = None
+        self.zmq_listener_conn = None
 
         self.serial_conn = None
         self.serial_read_function = None
@@ -86,7 +87,11 @@ class StreamProcessor:
 
     def disconnect_from_serial(self):
         if self.serial_conn is not None:
-            self.serial_conn.close()
+            # close the port; if its already failed, may thow an exception
+            try:
+                self.serial_conn.close()
+            except Exception:
+                pass
             self.serial_conn = None
 
     def configure_message_format(
@@ -163,6 +168,17 @@ class StreamProcessor:
             self.zmq_forwarding_conn.close()
             self.zmq_forwarding_conn = None
 
+    def start_zmq_listener(self, port):
+        self.zmq_listener_conn = zmq.Context().socket(zmq.SUB)
+        self.zmq_listener_conn.bind(f"tcp://*:{port}")
+        self.zmq_listener_conn.setsockopt(zmq.RCVTIMEO, 0)
+        self.zmq_listener_conn.subscribe(b"")
+
+    def stop_zmq_listener(self):
+        if self.zmq_listener_conn:
+            self.zmq_listener_conn.close()
+            self.zmq_listener_conn = None
+
     def run(self):
         self.running = True
         leftover_bytes = bytearray()
@@ -172,7 +188,7 @@ class StreamProcessor:
             if self.rpc_conn is not None and self.rpc_conn.poll(timeout=0):
                 command = self.rpc_conn.recv()
                 try:
-                    # execute the command
+                    # execute the command and send back the return value
                     method = getattr(self, command["method"])
                     value = method(*command["args"], **command["kwargs"])
                     self.rpc_conn.send(value)
@@ -182,27 +198,33 @@ class StreamProcessor:
             if self.serial_conn is None:
                 continue
 
-            # get all new data from serial
+            # read and transmit any incoming zmq messages that need to go out over serial
+            if self.zmq_listener_conn is not None:
+                while True:
+                    try:
+                        data = self.zmq_listener_conn.recv(flags=zmq.NOBLOCK)
+                        self.serial_conn.write(data)
+                    except zmq.ZMQError:
+                        break
+
+            # get all available new data from serial
             try:
                 read = self.serial_read_function(1_000_000)
             except OSError:
-                logger.warning("Couldn't read from connection. Stopping stream processor.")
-                self.close()
+                logger.error("Couldn't read from connection. Stopping stream processor.")
+                self.disconnect_from_serial()
                 break
 
             if len(read) == 0:
                 continue
 
-            # emit it over zmq
+            # emit received serial data over zmq
             if self.zmq_forwarding_conn is not None:
                 self.zmq_forwarding_conn.send(read)
 
-            # prepend all previous bytes
-            buffer = leftover_bytes + read
-
+            # process new + leftover data into messages
+            buffer = leftover_bytes + read  # prepend previous bytes
             timestamp = time.time_ns() // 1000
-
-            # extract messages
             if self.binary:
                 leftover_bytes = self.process_binary(buffer, timestamp)
             else:

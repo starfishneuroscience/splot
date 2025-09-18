@@ -6,7 +6,6 @@ import re
 import signal
 import sys
 import multiprocessing
-import threading
 import time
 
 import numpy as np
@@ -14,7 +13,6 @@ import pyqtgraph as pg
 import serial
 import serial.tools.list_ports
 from PyQt6 import QtCore, QtWidgets, QtGui, uic
-import zmq
 
 from .stream_processor import start_stream_processor
 from .ring_buffer import RingBuffer
@@ -94,9 +92,6 @@ class Ui(QtWidgets.QMainWindow):
         self.timer.timeout.connect(self.update_serial_ports)
         self.timer.start(300)
 
-        self.socket = None  # keep these around to properly close them
-        self.serial_connection = None
-
         # timer to update plots
         self.plot_timer = QtCore.QTimer()
         self.plot_timer.timeout.connect(self.update_stream_plots)
@@ -112,11 +107,10 @@ class Ui(QtWidgets.QMainWindow):
         self.plots = []
         self.plot_cursor_lines = []
         self.plot_types = []
-        self.plot_layout = pg.GraphicsLayoutWidget()
 
+        self.plot_layout = pg.GraphicsLayoutWidget()
         self.plot_layout.ci.layout.setSpacing(0.0)
         self.plot_layout.ci.setContentsMargins(0.0, 0.0, 0.0, 0.0)
-
         self.plotVBoxLayout.addWidget(self.plot_layout)
         # suppress constant debug messages on mac associated with trackpad
         self.plot_layout.viewport().setAttribute(QtCore.Qt.WidgetAttribute.WA_AcceptTouchEvents, False)
@@ -132,9 +126,9 @@ class Ui(QtWidgets.QMainWindow):
         self.zmq_listener_thread = None
         self.zmq_listener_loop_running = False
 
-        self.start_time = time.time_ns() // 1000
-
         self.plot_buffer = RingBuffer(self.plotLengthSpinBox.value(), adaptive_dtype=True)
+
+        self.start_time = time.time_ns() // 1000
 
     def populate_serial_options(self):
         option_map = {
@@ -489,39 +483,13 @@ class Ui(QtWidgets.QMainWindow):
         if checked:
             try:
                 port = self.receiveDataPortSpinBox.value()
-                conn = zmq.Context().socket(zmq.SUB)
-                conn.bind(f"tcp://*:{port}")
-                conn.setsockopt(zmq.RCVTIMEO, 100)  # set 100ms timeout
-                conn.subscribe(b"")
+                self.stream_processor_rpc("start_zmq_forwarding", port=port)
                 self.receiveDataPortSpinBox.setEnabled(False)
-                logger.info(f"Now receiving data on port {port}, will be forwarded to serial connection")
             except Exception:
                 logger.error(f"Unable to bind port {port} for receiving data to forward to serial.")
                 self.receiveDataCheckBox.setChecked(False)
-                return
-
-            # start listener loop
-            self.zmq_listener_thread = threading.Thread(target=self.zmq_listener_loop, args=(conn,))
-            self.zmq_listener_thread.start()
-
         elif not checked:
-            self.stop_zmq_listener()
-
-    def stop_zmq_listener(self):
-        self.zmq_listener_loop_running = False
-        if self.zmq_listener_thread:
-            self.zmq_listener_thread.join()
-        self.receiveDataPortSpinBox.setEnabled(True)
-
-    def zmq_listener_loop(self, conn):
-        self.zmq_listener_loop_running = True
-        while self.zmq_listener_loop_running:
-            try:
-                data = conn.recv()
-            except zmq.ZMQError:
-                continue
-            if self.serial_connection:
-                self.serial_connection.write(data)
+            self.stream_processor_rpc("stop_zmq_forwarding")
 
     @QtCore.pyqtSlot(int)
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
