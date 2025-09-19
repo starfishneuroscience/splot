@@ -60,6 +60,8 @@ class StreamProcessor:
         self.serial_conn = None
         self.serial_read_function = None
 
+        self.bytes_received = None
+
     def connect_to_serial(self, port, is_socket, baudrate=None, parity=None, stopbits=None):
         self.disconnect_from_serial()
 
@@ -85,6 +87,8 @@ class StreamProcessor:
             self.serial_read_function = self.serial_conn.read
             logger.info(f"Connected to serial port: {port}")
 
+        self.bytes_received = 0
+
     def disconnect_from_serial(self):
         if self.serial_conn is not None:
             # close the port; if its already failed, may thow an exception
@@ -93,6 +97,8 @@ class StreamProcessor:
             except Exception:
                 pass
             self.serial_conn = None
+            self.serial_read_function = None
+            self.bytes_received = None
 
     def configure_message_format(
         self,
@@ -226,6 +232,8 @@ class StreamProcessor:
             if len(read) == 0:
                 continue
 
+            self.bytes_received += len(read)
+
             # emit received serial data over zmq
             if self.zmq_forwarding_conn is not None:
                 self.zmq_forwarding_conn.send(read)
@@ -333,6 +341,9 @@ class StreamProcessor:
 
     def get_new_messages(self):
         return self.message_buffer.read_new()
+
+    def get_bytes_received(self):
+        return self.bytes_received
 
     def close(self):
         self.running = False

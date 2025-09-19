@@ -42,4 +42,4 @@ while True:
 
         # print(f"Sent: {data}")
         counter += 1
-        time.sleep(0.00001)
+        time.sleep(0.00005)

@@ -90,6 +90,10 @@ class Ui(QtWidgets.QMainWindow):
         self.plot_timer = QtCore.QTimer()
         self.plot_timer.timeout.connect(self.update_stream_plots)
 
+        self.status_bar_timer = QtCore.QTimer()
+        self.status_bar_timer.timeout.connect(self.update_status_bar)
+        self.status_bar_timer.start(300)
+
         # set plot background and color based on system theme
         palette = QtWidgets.QApplication.palette()
         bgcolor = palette.color(QtGui.QPalette.ColorRole.Window)
@@ -178,7 +182,6 @@ class Ui(QtWidgets.QMainWindow):
 
         self.enable_ui_elements_on_connection(connected=True)
         self.plot_timer.start(33)
-        self.statusBar().showMessage("Connected.")
 
     def data_format_updated(self):
         """Update StreamProcessor's data format based on the current UI settings.
@@ -214,7 +217,6 @@ class Ui(QtWidgets.QMainWindow):
 
         self.savePushButton.setChecked(False)
         self.enable_ui_elements_on_connection(connected=False)
-        self.statusBar().showMessage("Disconnected.")
 
     def enable_ui_elements_on_connection(self, connected: bool):
         self.serialParametersGroupBox.setEnabled(not connected)
@@ -497,6 +499,13 @@ class Ui(QtWidgets.QMainWindow):
             # flush streamprocessor buffer, then start getting new data
             self.stream_processor_rpc("get_new_messages")
             self.plot_timer.start(33)
+
+    def update_status_bar(self):
+        bytes_received = self.stream_processor_rpc("get_bytes_received")
+        if bytes_received:
+            self.statusBar().showMessage(f"Bytes received: {bytes_received}")
+        else:
+            self.statusBar().showMessage("Not connected.")
 
 
 def main():
