@@ -203,7 +203,7 @@ class StreamProcessor:
         while self.running:
             self.handle_rpc_requests()
 
-            if self.serial_conn is None:
+            if self.serial_read_function is None:
                 continue
 
             # read and transmit any incoming zmq messages that need to go out over serial
@@ -283,11 +283,9 @@ class StreamProcessor:
     def process_binary(self, buffer, timestamp):
         new_data = np.array(buffer)
         expected_length = self.binary_dtype.itemsize  # does not include delimiter byte
-        num_bytes_read = len(buffer)
 
         # find delimiters so we can define message bytes based on them
         delimiter_indices = np.where(new_data == self.message_delimiter)[0]
-
         if len(delimiter_indices) == 0:
             # if we've got more than expected_size w no delimiter, it's all invalid, ignore it
             if len(new_data) > expected_length:
@@ -295,27 +293,26 @@ class StreamProcessor:
             else:
                 return buffer
 
-        # remove delimiters that would make messages too short (must be part of message)
         valid_delimiter_indices = [delimiter_indices[0]]
         for i in delimiter_indices[1:]:
             if i - valid_delimiter_indices[-1] >= expected_length:
                 valid_delimiter_indices += [i]
 
-        mask = np.full((len(new_data)), False)
-        # assume delimiters on either end
-        break_indices = np.concatenate([[-1], valid_delimiter_indices, [len(new_data)]])
+        valid_mask = np.full((len(new_data)), False)
+        # assume delimiters at right end (so that we can parse a message with a header w/o waiting for next)
+        break_indices = np.concatenate([valid_delimiter_indices, [len(new_data)]])
         for i, j in zip(break_indices[:-1], break_indices[1:]):
             if j - i == expected_length + 1:
-                mask[(i + 1) : j] = True
+                valid_mask[(i + 1) : j] = True
 
-        if sum(mask) == 0:
+        if sum(valid_mask) == 0:
             # we received either an incomplete packet, or 1+ invalid packets
             return buffer[valid_delimiter_indices[-1] :]
 
         # messages to streams (e.g. 8 byte message to 2 uint8s, 1 uint16, 1 uint32):
         # the numpy parser is amazing, see docs:
         #   https://numpy.org/doc/stable/reference/arrays.dtypes.html#arrays-dtypes-constructing
-        structured_data = np.frombuffer(new_data[mask], self.binary_dtype)
+        structured_data = np.frombuffer(new_data[valid_mask], self.binary_dtype)
 
         # add timestamp
         structured_data = rfn.append_fields(
@@ -331,7 +328,8 @@ class StreamProcessor:
         # update ring-buffer that plot UI will use
         self.message_buffer.add(structured_data)
 
-        return buffer[num_bytes_read:]
+        last_valid_byte = np.where(valid_mask)[0].max()
+        return buffer[last_valid_byte + 1 :]
 
     def get_new_messages(self):
         return self.message_buffer.read_new()
