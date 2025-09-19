@@ -75,6 +75,9 @@ There are a number of similar projects out there from which splot takes inspirat
  - https://github.com/hacknus/serial-monitor-rust
 
 ## Changelog:
+- PR #19:
+    - move stream processor to its own process (not thread); delete serialReceiver.
+    - tested for much improved performance.
 - PR #17:
     - Add option to plot with time as x axis
         - Add usec timestamps to all messages
