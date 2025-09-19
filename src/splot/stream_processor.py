@@ -182,21 +182,26 @@ class StreamProcessor:
             self.zmq_listener_conn = None
             logger.info("Stopping zmq->serial forwarding")
 
+    def handle_rpc_requests(self):
+        if self.rpc_conn is None:
+            raise RuntimeError("Cannot communicate with main process.")
+
+        while self.rpc_conn.poll(timeout=0):
+            command = self.rpc_conn.recv()
+            try:
+                # execute the command and send back the return value
+                method = getattr(self, command["method"])
+                value = method(*command["args"], **command["kwargs"])
+                self.rpc_conn.send(value)
+            except Exception as err:
+                self.rpc_conn.send(err)
+
     def run(self):
         self.running = True
         leftover_bytes = bytearray()
 
         while self.running:
-            # check if we have any RPCs we need to run
-            if self.rpc_conn is not None and self.rpc_conn.poll(timeout=0):
-                command = self.rpc_conn.recv()
-                try:
-                    # execute the command and send back the return value
-                    method = getattr(self, command["method"])
-                    value = method(*command["args"], **command["kwargs"])
-                    self.rpc_conn.send(value)
-                except Exception as err:
-                    self.rpc_conn.send(err)
+            self.handle_rpc_requests()
 
             if self.serial_conn is None:
                 continue
@@ -280,51 +285,37 @@ class StreamProcessor:
         expected_length = self.binary_dtype.itemsize  # does not include delimiter byte
         num_bytes_read = len(buffer)
 
-        # find delimiters so we can split array based on them
+        # find delimiters so we can define message bytes based on them
         delimiter_indices = np.where(new_data == self.message_delimiter)[0]
 
         if len(delimiter_indices) == 0:
-            # buffer could grow without bounds if no delimiter is ever included.
-            # if its longer than a message, but has no delimiter, can safely chop off
-            # anything more than 1 message length ago.
-            return buffer[-(expected_length + 1) :]
+            # if we've got more than expected_size w no delimiter, it's all invalid, ignore it
+            if len(new_data) > expected_length:
+                return bytearray(b"")
+            else:
+                return buffer
 
         # remove delimiters that would make messages too short (must be part of message)
         valid_delimiter_indices = [delimiter_indices[0]]
-        for index in delimiter_indices:
-            if index - valid_delimiter_indices[-1] >= expected_length:
-                valid_delimiter_indices += [index]
-        messages = np.split(new_data, valid_delimiter_indices)
+        for i in delimiter_indices[1:]:
+            if i - valid_delimiter_indices[-1] >= expected_length:
+                valid_delimiter_indices += [i]
 
-        # if data started with delimiter, split will return empty first array
-        if len(messages[0]) == 0:
-            messages = messages[1:]
+        mask = np.full((len(new_data)), False)
+        # assume delimiters on either end
+        break_indices = np.concatenate([[-1], valid_delimiter_indices, [len(new_data)]])
+        for i, j in zip(break_indices[:-1], break_indices[1:]):
+            if j - i == expected_length + 1:
+                mask[(i + 1) : j] = True
 
-        # drop delimiter byte from each message (after np.split, messages *begin* with delimiter)
-        messages = [x[1:] for x in messages if x[0] == self.message_delimiter]
-
-        # check if last message is truncated, and if so, remove it
-        if len(messages[-1]) < expected_length:
-            num_bytes_read -= len(messages[-1]) + 1  # add 1 for separator byte
-            messages = messages[:-1]
-
-        # remove any invalid messages with extra bytes
-        message_lengths = np.array([len(msg) for msg in messages])
-        if any(message_lengths != expected_length):
-            bad_message_lengths = message_lengths[message_lengths != expected_length]
-            logger.warning(
-                f"Dropping {len(bad_message_lengths)} bad messages. Lengths: {np.unique(bad_message_lengths)}."
-            )
-            messages = [m for m in messages if len(m) == expected_length]
-
-        if len(messages) == 0:
+        if sum(mask) == 0:
             # we received either an incomplete packet, or 1+ invalid packets
-            return buffer[num_bytes_read:]
+            return buffer[valid_delimiter_indices[-1] :]
 
         # messages to streams (e.g. 8 byte message to 2 uint8s, 1 uint16, 1 uint32):
         # the numpy parser is amazing, see docs:
         #   https://numpy.org/doc/stable/reference/arrays.dtypes.html#arrays-dtypes-constructing
-        structured_data = np.frombuffer(np.concatenate(messages), self.binary_dtype)
+        structured_data = np.frombuffer(new_data[mask], self.binary_dtype)
 
         # add timestamp
         structured_data = rfn.append_fields(

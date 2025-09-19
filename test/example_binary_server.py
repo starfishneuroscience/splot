@@ -5,6 +5,8 @@ import time
 server_socket = socket.socket()
 server_socket.bind(("localhost", 12344))
 server_socket.listen()
+
+data = bytearray(b"")
 while True:
     conn, address = server_socket.accept()  # accept new connection
     counter = 0
@@ -17,14 +19,17 @@ while True:
         x5 = x1 + x2 + x3 + x4
 
         # u1, u1, 3i2, i4
-        data = delimiter.to_bytes(1) + x1.to_bytes(1)
+        data += delimiter.to_bytes(1) + x1.to_bytes(1)
         data += x2.to_bytes(2, signed=True, byteorder="little")
         data += x3.to_bytes(2, signed=True, byteorder="little")
         data += x4.to_bytes(2, signed=True, byteorder="little")
         data += x5.to_bytes(4, signed=True, byteorder="little")
 
+        length_to_send = np.random.randint(1, len(data))
+
         try:
-            conn.send(data)
+            conn.send(data[:length_to_send])
+            data = data[length_to_send:]
         except Exception as e:
             print(e)
             break
