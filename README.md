@@ -35,7 +35,6 @@ When receiving binary data, splot can save a file consisting of a json header in
 import splot
 arr, series_names = splot.read_serial_capture_binary(
     filename='/home/x/data/serialcapture_2024-06-17_17-49-54.bin',
-    structured=True,
 )
 ```
 
@@ -43,7 +42,7 @@ When receiving ascii data, if the user requests data to be saved, splot records 
 
 Sometimes it is important that received data be timestamped upon receipt. splot internally records timestamps when each packet is parsed, in usec. These timestamps can be optionally saved as well. For ascii data, this will simply be the last data column; for binary data, it will be the last 8 bytes of each message (uint64).
 
-# Network interfaces (ZMQ)
+## Network interfaces (ZMQ)
 splot includes some limited functionality to support additional users/programs accessing the serial port. When requested, splot will bind a port as a subscriber, to which publishers can publish data, which will be immediately forwarded (byte-for-byte) directly to the serial port. Conversely, splot can also bind a port as a publisher and directly relay serial data (raw bytes) to any and all connected subscribers.
 
 
@@ -73,45 +72,3 @@ There are a number of similar projects out there from which splot takes inspirat
  - https://github.com/nathandunk/BetterSerialPlotter
  - https://github.com/mich-w/QtSerialMonitor
  - https://github.com/hacknus/serial-monitor-rust
-
-## Changelog:
-- PR #19:
-    - move stream processor to its own process (not thread); delete serialReceiver.
-    - tested for much improved performance.
-- PR #17:
-    - Add option to plot with time as x axis
-        - Add usec timestamps to all messages
-        - Rework internal representation of data to use ringbuffer as numpy structured array
-        - Change UI dtype representation such that all fields in numpy dtype are scalars
-    - Add option to save timestamps (or not)
-    - In binary mode, do not include delimiter byte in dtype, nor save it
-- PR #14:
-    - Changing data formats didn't work while connected, but works now.
-- PR #8:
-    - enable saving data
-    - revert to same color on all plots
-    - add name for each plot
-    - make names, visility, and type (analog or bitmask) of plots persistent
-- PR #6:
-    - Pause now respected when connecting/disconnecting
-    - Unique colors for each plot
-    - Allow disabling of certain streams for plotting
-    - Remove margins between plots and x-axes of all plots except bottom one, so that plots can be bigger
-    - Allow plotting of data series as rasters (interpreting values as bit-masks)
- - PR #4:
-    - Pause didn't pause processing, just updating the plots. Pause now inhibits stream processor, so plot buffers dont update.
-    - Show vertical bar for current plot position
-    - Color scheme was bad for 'light' system theme. Now correctly pulls theme colors and uses them.
-    - Add persistent settings when closing and re-opening app via QSettings.
- - PR #3:
-    - Fix some bad bugs in ASCII parsing (would re-read same buffer if no new data were present! wouldnt parse floats correctly!)
-    - UI cleanup: alignment/sizing, make plot colors match system theme.
-    - Add example TCP server for testing ascii parsing.
- - PR #2:
-    - Restructure as python package to allow easy install. Still works with local editable install (`pip install -e <repo path>`).
- - PR #1:
-    - handle sockets, not just serial ports. you can type in a tcp/udp address into "source" and it will connect automatically.
-    - handle ascii messages with numerical fields
-    - add mouseover documentation for dtype_string
-    - in binary, message size should be inferred from dtype_string
-    - make different config options available on UI when parsing different message types
