@@ -46,7 +46,7 @@ Sometimes it is important that received data be timestamped upon receipt. splot 
 splot includes some limited functionality to support additional users/programs accessing the serial port. When requested, splot will bind a port as a subscriber, to which publishers can publish data, which will be immediately forwarded (byte-for-byte) directly to the serial port. Conversely, splot can also bind a port as a publisher and directly relay serial data (raw bytes) to any and all connected subscribers.
 
 
-### Possible future directions
+## Possible future directions
 - Development:
     - Implementing a good test infrastructure for automated testing (possibly in CI)
 - UI:
