@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>790</width>
-    <height>836</height>
+    <height>838</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -127,6 +127,18 @@
        <item>
         <widget class="QFrame" name="horizontalFrame">
          <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <property name="leftMargin">
+           <number>4</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>4</number>
+          </property>
+          <property name="bottomMargin">
+           <number>4</number>
+          </property>
           <item>
            <widget class="QFrame" name="leftFrame">
             <property name="sizePolicy">
@@ -697,7 +709,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QGroupBox" name="groupBox">
+              <widget class="QGroupBox" name="plotOptionGroupBox">
                <property name="font">
                 <font>
                  <pointsize>12</pointsize>
@@ -791,10 +803,13 @@
           <item>
            <widget class="QFrame" name="rightFrame">
             <property name="frameShape">
-             <enum>QFrame::StyledPanel</enum>
+             <enum>QFrame::NoFrame</enum>
             </property>
             <property name="frameShadow">
-             <enum>QFrame::Raised</enum>
+             <enum>QFrame::Plain</enum>
+            </property>
+            <property name="lineWidth">
+             <number>0</number>
             </property>
             <layout class="QVBoxLayout" name="plotVBoxLayout"/>
            </widget>
