@@ -271,6 +271,9 @@ class Ui(QtWidgets.QMainWindow):
             # make scrolling zoom in x axis only, not y
             vb = plot.getViewBox()
             vb.setMouseEnabled(x=True, y=False)
+            if self.xAxisChoiceComboBox.currentText() == "index":
+                plot.setRange(xRange=(0, self.plotLengthSpinBox.value()))
+                vb.setLimits(xMin=0, xMax=self.plotLengthSpinBox.value())
 
         # default to plot_type = 0 if no QSettings entry exists
         settings_plot_types = [self.settings.value(f"ui/seriesPlotType[{i}]") for i in range(num_streams)]
@@ -286,6 +289,15 @@ class Ui(QtWidgets.QMainWindow):
     def on_xAxisChoiceComboBox_currentTextChanged(self, x_axis_choice):
         for line in self.plot_cursor_lines:
             line.setVisible(x_axis_choice != "time (s)")
+
+        for plot in self.plots:
+            vb = plot.getViewBox()
+            if x_axis_choice == "index":
+                x_max = self.plotLengthSpinBox.value()
+                plot.setRange(xRange=(0, x_max))
+                vb.setLimits(xMin=0, xMax=x_max)
+            else:
+                vb.setLimits(xMin=0, xMax=np.inf)
 
     def get_new_data_from_stream_processor(self):
         new_data = self.stream_processor_rpc("get_new_messages")
@@ -323,6 +335,9 @@ class Ui(QtWidgets.QMainWindow):
                 else:
                     x = np.arange(len(stream_data))
                 series.setData(x, stream_data, connect="finite", stepMode=None)
+
+            if use_timestamp:
+                plot.setRange(xRange=(x[0], x[-1]))
 
     def closeEvent(self, event):
         self.stream_processor_rpc("close")
@@ -382,7 +397,7 @@ class Ui(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(int)
     def on_seriesSelectorSpinBox_valueChanged(self, series_index):
-        if series_index not in self.plots:
+        if series_index not in range(len(self.plots)):
             return
         # update the series property boxes appropriately
         self.seriesVisibleCheckBox.setChecked(self.plots[series_index].isVisible())
