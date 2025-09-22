@@ -258,64 +258,6 @@
                   </property>
                  </widget>
                 </item>
-                <item row="4" column="0">
-                 <widget class="QLabel" name="serialReadChunkSizeLabel">
-                  <property name="text">
-                   <string>Read chunk size</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="4" column="1">
-                 <widget class="QSpinBox" name="serialReadChunkSizeSpinBox">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="keyboardTracking">
-                   <bool>false</bool>
-                  </property>
-                  <property name="minimum">
-                   <number>1</number>
-                  </property>
-                  <property name="maximum">
-                   <number>99999999</number>
-                  </property>
-                  <property name="value">
-                   <number>10000</number>
-                  </property>
-                 </widget>
-                </item>
-                <item row="5" column="0">
-                 <widget class="QLabel" name="serialBufferSizeLabel">
-                  <property name="text">
-                   <string>Serial buffer size</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="5" column="1">
-                 <widget class="QSpinBox" name="serialBufferSizeSpinBox">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="keyboardTracking">
-                   <bool>false</bool>
-                  </property>
-                  <property name="minimum">
-                   <number>10</number>
-                  </property>
-                  <property name="maximum">
-                   <number>99999999</number>
-                  </property>
-                  <property name="value">
-                   <number>100000</number>
-                  </property>
-                 </widget>
-                </item>
                </layout>
               </widget>
              </item>
@@ -352,7 +294,7 @@
                  <number>6</number>
                 </property>
                 <item row="0" column="0">
-                 <widget class="QLabel" name="label_13">
+                 <widget class="QLabel" name="dataFormatLabel">
                   <property name="text">
                    <string>Data format</string>
                   </property>
