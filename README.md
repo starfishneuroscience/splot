@@ -11,13 +11,16 @@ Data is often sent in different formats, so splot is intended to have the flexib
 2. *ascii encoded messages*, with a single-byte delimiter between messages (typically a newline, '\n'). The user specifies the number of data series expected in each message `n`, and the first `n` numbers in each message will be plotted. If less than `n` values are present, the remaining values are filled with NaNs.
 
 ## Screenshots (what does it look like?)
-https://github.com/starfishneuroscience/splot/assets/108433203/f57e02ae-caa8-45b6-ac78-059420b13914
+https://github.com/user-attachments/assets/d1c8fc6f-a821-4ccb-a696-15a6604434dc
 
 ## How do I install it?
 ```sh
 pip install "git+https://github.com/starfishneuroscience/splot.git"
 ```
 and then to run it, run `splot` at the command line.
+
+
+
 
 ## License
 See the `LICENSE` file.
