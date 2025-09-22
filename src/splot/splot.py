@@ -121,6 +121,9 @@ class Ui(QtWidgets.QMainWindow):
 
         self.saveLocationLabel.setText(str(Path.home()))
 
+        self.pause_shortcut = QtGui.QShortcut(QtGui.QKeySequence("Space"), self)
+        self.pause_shortcut.activated.connect(self.pausePushButton.click)
+
         self.zmq_listener_thread = None
         self.zmq_listener_loop_running = False
 
@@ -222,6 +225,7 @@ class Ui(QtWidgets.QMainWindow):
         self.serialParametersGroupBox.setEnabled(not connected)
         self.seriesConfigurationGroupBox.setEnabled(connected)
         self.savePushButton.setEnabled(connected)
+        self.pausePushButton.setEnabled(connected)
 
     def update_serial_ports(self):
         new_ports = serial.tools.list_ports.comports()
