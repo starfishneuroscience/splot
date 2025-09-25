@@ -51,10 +51,11 @@ def vector_to_bit_traces(dat: np.ndarray[int], num_bits: int = None):
         else:
             num_bits = 8
 
+    dat = dat.astype(int)
     x = []
     y = []
     for bit_index in range(num_bits):
-        seq = (dat.astype(int) >> bit_index) & 1
+        seq = (dat >> bit_index) & 1
         ind = np.concatenate([[0], np.where(np.diff(seq) != 0)[0] + 1, [len(seq) - 1]])
         x.append(ind)
         y.append(bit_index + seq[ind] * 0.8)
@@ -311,6 +312,8 @@ class Ui(QtWidgets.QMainWindow):
         self.get_new_data_from_stream_processor()
         cursor_x = self.plot_buffer._write_ptr
         data = self.plot_buffer.get_valid_buffer()
+        if len(data) == 0:
+            return
 
         use_timestamp = self.xAxisChoiceComboBox.currentText() == "time (s)"
         if use_timestamp:
@@ -327,9 +330,11 @@ class Ui(QtWidgets.QMainWindow):
                 x, y = vector_to_bit_traces(stream_data)
                 # x must be float to correctly plot trace breaks
                 if use_timestamp:
-                    nan_indices = np.where(np.isnan(x))
+                    nan_indices = np.where(np.isnan(x))[0]
                     with np.errstate(invalid="ignore"):
                         idx = x.astype(int)
+                        idx[nan_indices] = 0
+                    idx[nan_indices] = 0
                     x = (data["timestamp_usec"][idx] - self.start_time) / 1e6
                     x[nan_indices] = np.nan
                 series.setData(x, y, connect="finite", stepMode="right")
@@ -521,7 +526,7 @@ class Ui(QtWidgets.QMainWindow):
 
     def update_status_bar(self):
         bytes_received = self.stream_processor_rpc("get_bytes_received")
-        if bytes_received:
+        if bytes_received is not None:
             self.statusBar().showMessage(f"Bytes received: {bytes_received}")
         else:
             self.statusBar().showMessage("Not connected.")
