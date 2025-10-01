@@ -307,13 +307,15 @@ class Ui(QtWidgets.QMainWindow):
     def get_new_data_from_stream_processor(self):
         new_data = self.stream_processor_rpc("get_new_messages")
         self.plot_buffer.add(new_data)
+        return len(new_data)
 
-    def update_stream_plots(self):
-        self.get_new_data_from_stream_processor()
+    def update_stream_plots(self, force=False):
+        num_new_messages = self.get_new_data_from_stream_processor()
+        if num_new_messages == 0 and not force:
+            return
+
         cursor_x = self.plot_buffer._write_ptr
         data = self.plot_buffer.get_valid_buffer()
-        if len(data) == 0:
-            return
 
         use_timestamp = self.xAxisChoiceComboBox.currentText() == "time (s)"
         if use_timestamp:
@@ -514,6 +516,10 @@ class Ui(QtWidgets.QMainWindow):
     def on_plotLengthSpinBox_valueChanged(self, plot_buffer_length):
         self.settings.setValue("ui/plotLength", plot_buffer_length)
         self.plot_buffer = RingBuffer(plot_buffer_length, adaptive_dtype=True)
+        if self.xAxisChoiceComboBox.currentText() == "index":
+            for plot in self.plots:
+                plot.setRange(xRange=(0, plot_buffer_length))
+                plot.getViewBox().setLimits(xMin=0, xMax=plot_buffer_length)
 
     @QtCore.pyqtSlot(bool)
     def on_pausePushButton_clicked(self, checked):
