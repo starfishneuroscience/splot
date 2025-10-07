@@ -73,6 +73,7 @@ class StreamProcessor:
             self.serial_conn = socket.socket(socket.AF_INET, socket_type)
             host, port = port.rsplit(":")
             self.serial_conn.connect((host, int(port)))
+            self.serial_conn.settimeout(0.001)  # 0 doesnt work appropriately on mac
             self.serial_read_function = self.serial_conn.recv
             logger.info(f"Connected to socket: {port}")
         else:
@@ -224,8 +225,10 @@ class StreamProcessor:
             # get all available new data from serial
             try:
                 read = self.serial_read_function(1_000_000)
-            except OSError:
-                logger.error("Couldn't read from connection. Disconnecting.")
+            except socket.timeout:
+                continue
+            except OSError as error:
+                logger.error(f"{error}. Couldn't read from connection. Disconnecting.")
                 self.disconnect_from_serial()
                 continue
 
@@ -327,6 +330,7 @@ class StreamProcessor:
             structured_data,
             names="timestamp_usec",
             data=np.repeat(np.uint64(timestamp), len(structured_data)),
+            usemask=False,
         )
 
         # if we're saving to file, dump new data to file here
