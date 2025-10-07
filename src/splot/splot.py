@@ -184,6 +184,9 @@ class Ui(QtWidgets.QMainWindow):
                 stopbits=float(self.serialStopBitsComboBox.currentText()),
             )
 
+        # clear plot buffer
+        self.plot_buffer = RingBuffer(self.plotLengthSpinBox.value(), adaptive_dtype=True)
+
         self.enable_ui_elements_on_connection(connected=True)
         self.plot_timer.start(33)
 
@@ -518,8 +521,8 @@ class Ui(QtWidgets.QMainWindow):
         self.plot_buffer = RingBuffer(plot_buffer_length, adaptive_dtype=True)
         if self.xAxisChoiceComboBox.currentText() == "index":
             for plot in self.plots:
-                plot.setRange(xRange=(0, plot_buffer_length))
                 plot.getViewBox().setLimits(xMin=0, xMax=plot_buffer_length)
+                plot.setRange(xRange=(0, plot_buffer_length))
 
     @QtCore.pyqtSlot(bool)
     def on_pausePushButton_clicked(self, checked):
