@@ -191,7 +191,6 @@ class StreamProcessor:
 
     def transmit_data(self, data: bytes):
         self.serial_conn.write(data)
-        print(f"sent {data}")
 
     def handle_rpc_requests(self):
         if self.rpc_conn is None:
