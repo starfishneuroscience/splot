@@ -1,4 +1,6 @@
 # Changelog:
+- PR #25:
+    - Add serial transmit functionality to GUI
 - PR #19:
     - move stream processor to its own process (not thread); delete serialReceiver.
     - tested for much improved performance.
