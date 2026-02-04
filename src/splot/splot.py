@@ -229,6 +229,7 @@ class Ui(QtWidgets.QMainWindow):
         self.serialParametersGroupBox.setEnabled(not connected)
         self.seriesConfigurationGroupBox.setEnabled(connected)
         self.savePushButton.setEnabled(connected)
+        self.serialTransmissionGroupBox.setEnabled(connected)
         self.pausePushButton.setEnabled(connected)
 
     def update_serial_ports(self):
@@ -493,6 +494,14 @@ class Ui(QtWidgets.QMainWindow):
                 self.emitDataPortSpinBox.setChecked(False)
         elif not checked:
             self.stream_processor_rpc("stop_zmq_forwarding")
+
+    @QtCore.pyqtSlot()
+    def on_transmitDataPushButton_clicked(self):
+        string_to_send = self.transmitDataLineEdit.text()
+        if len(string_to_send) == 0:
+            return
+        bytes_to_send = string_to_send.encode("latin-1").decode("unicode_escape").encode("latin-1")
+        self.stream_processor_rpc("transmit_data", bytes_to_send)
 
     def stream_processor_rpc(self, method: str, *args, **kwargs):
         command = {"method": method, "args": args, "kwargs": kwargs}

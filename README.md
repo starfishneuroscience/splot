@@ -54,8 +54,6 @@ splot includes some limited functionality to support additional users/programs a
     - Implementing a good test infrastructure for automated testing (possibly in CI)
 - UI:
     - switch between stacked plots and single plot with overlaid series
-- Serial interface:
-    - Serial transmit functionality
 - Data processing:
     - filters and averaging of signals (averaging is actually built into pyqtgraph; right click on a plot!)
     - Oscilloscope mode / triggered plotting
