@@ -83,7 +83,7 @@ class RawDataViewer(QtWidgets.QWidget):
         super().__init__()
 
         self.setWindowTitle("Raw serial data")
-        self.setFixedSize(400, 300)
+        self.resize(400, 300)
 
         self.get_data_function = get_data_function
         self.update_interval_ms = update_interval_ms
