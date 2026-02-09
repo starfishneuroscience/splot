@@ -7,6 +7,7 @@ import signal
 import sys
 import multiprocessing
 import time
+import typing
 
 import numpy as np
 import pyqtgraph as pg
@@ -21,7 +22,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(m
 logger = logging.getLogger(__name__)
 
 
-def parse_splot_dtype_string(text):
+def parse_splot_dtype_string(text: str) -> str:
     """Find pattern 'n[ABC]' and replace with n comma-separated repeats of 'ABC'.
 
     This function exists to allow users to easily specify complex packet structures,
@@ -38,11 +39,14 @@ def parse_splot_dtype_string(text):
     return re.sub(pattern, replacer, text)
 
 
-def vector_to_bit_traces(dat: np.ndarray[int], num_bits: int = None):
+def vector_to_bit_traces(dat: np.ndarray[int], num_bits: int = None) -> typing.Tuple[np.ndarray, np.ndarray]:
     """Take a vector of integers and return plotting vectors x and y.
     :returns: vectors x and y such that plotting x vs y yields traces for each individual
         bit, with each bit trace separate by a y=nan entry
     """
+    if dat is None or len(dat) == 0:
+        return np.empty(0), np.empty(0)
+
     if num_bits is None:
         if np.issubdtype(dat.dtype, np.integer):
             num_bits = dat.dtype.itemsize * 8
@@ -65,6 +69,63 @@ def vector_to_bit_traces(dat: np.ndarray[int], num_bits: int = None):
     x = np.concatenate(x)
     y = np.concatenate(y)
     return x, y
+
+
+class RawDataViewer(QtWidgets.QWidget):
+    def __init__(self, get_data_function, update_interval_ms=50):
+        """Class for visualizing raw serial data in a textbox, as either ascii text
+        or as a series of hex byte values.
+
+        :param get_data_function: function that returns the most recent data received
+            on the serial port
+        :param update_interval_ms: how often the textbox should be updated.
+        """
+        super().__init__()
+
+        self.setWindowTitle("Raw serial data")
+        self.setFixedSize(400, 300)
+
+        self.get_data_function = get_data_function
+        self.update_interval_ms = update_interval_ms
+
+        layout = QtWidgets.QVBoxLayout(self)
+        h_layout = QtWidgets.QHBoxLayout()
+        layout.addLayout(h_layout)
+
+        self.combo = QtWidgets.QComboBox()
+        self.combo.addItems(["ascii", "hex"])
+        h_layout.addWidget(self.combo)
+
+        self.button = QtWidgets.QPushButton("Pause")
+        self.button.setCheckable(True)
+        self.button.clicked.connect(self.pause_pressed)
+        h_layout.addWidget(self.button)
+        self.paused = False
+
+        self.text_edit = QtWidgets.QTextEdit()
+        self.text_edit.setReadOnly(True)
+        layout.addWidget(self.text_edit)
+
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_DeleteOnClose)
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update_text_box)
+        self.timer.start(self.update_interval_ms)
+
+    def update_text_box(self):
+        data = self.get_data_function()  # returns bytes
+
+        if self.combo.currentText() == "ascii":
+            text = data.decode("ascii", errors="backslashreplace")
+        else:
+            text = " ".join([f"{byte:02X}" for byte in data])
+
+        self.text_edit.setText(text)
+
+    def pause_pressed(self, checked: bool):
+        if checked:
+            self.timer.stop()
+        else:
+            self.timer.start(self.update_interval_ms)
 
 
 class Ui(QtWidgets.QMainWindow):
@@ -131,6 +192,8 @@ class Ui(QtWidgets.QMainWindow):
         self.plot_buffer = RingBuffer(self.plotLengthSpinBox.value(), adaptive_dtype=True)
 
         self.start_time = time.time_ns() // 1000
+
+        self.raw_data_viewer = None
 
     def populate_serial_options(self):
         option_map = {
@@ -356,6 +419,8 @@ class Ui(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         self.stream_processor_rpc("close")
+        if self.raw_data_viewer is not None:
+            self.raw_data_viewer.close()
 
     @QtCore.pyqtSlot(int)
     def on_serialPortComboBox_currentIndexChanged(self, index):
@@ -541,6 +606,18 @@ class Ui(QtWidgets.QMainWindow):
             # flush streamprocessor buffer, then start getting new data
             self.stream_processor_rpc("get_new_messages")
             self.plot_timer.start(33)
+
+    def on_rawDataViewerPushButton_clicked(self):
+        if self.raw_data_viewer is None:
+            self.raw_data_viewer = RawDataViewer(lambda: self.stream_processor_rpc("get_most_recent_serial_bytes"))
+            self.raw_data_viewer.destroyed.connect(self.close_raw_data_viewer)
+            self.raw_data_viewer.show()
+        else:
+            self.raw_data_viewer.raise_()
+            self.raw_data_viewer.activateWindow()
+
+    def close_raw_data_viewer(self):
+        self.raw_data_viewer = None
 
     def update_status_bar(self):
         bytes_received = self.stream_processor_rpc("get_bytes_received")
