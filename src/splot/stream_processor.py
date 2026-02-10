@@ -239,7 +239,7 @@ class StreamProcessor:
             if len(read) == 0:
                 continue
 
-            self._bytes_read = read
+            self._bytes_read = (self._bytes_read + read)[-10000:]
             self.bytes_received += len(read)
 
             # emit received serial data over zmq

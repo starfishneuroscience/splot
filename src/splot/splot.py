@@ -18,6 +18,7 @@ from PyQt6 import QtCore, QtWidgets, QtGui, uic
 from .stream_processor import start_stream_processor
 from .ring_buffer import RingBuffer
 
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ class RawDataViewer(QtWidgets.QWidget):
         """
         super().__init__()
 
-        self.setWindowTitle("Raw serial data")
+        self.setWindowTitle("Raw serial data (last 10000 bytes)")
         self.resize(400, 300)
 
         self.get_data_function = get_data_function
@@ -93,7 +94,7 @@ class RawDataViewer(QtWidgets.QWidget):
         layout.addLayout(h_layout)
 
         self.combo = QtWidgets.QComboBox()
-        self.combo.addItems(["ascii", "hex"])
+        self.combo.addItems(["ascii", "hex", "decimal"])
         h_layout.addWidget(self.combo)
 
         self.button = QtWidgets.QPushButton("Pause")
@@ -103,7 +104,6 @@ class RawDataViewer(QtWidgets.QWidget):
         self.paused = False
 
         self.text_edit = QtWidgets.QTextEdit()
-        self.text_edit.setReadOnly(True)
         layout.addWidget(self.text_edit)
 
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -116,10 +116,13 @@ class RawDataViewer(QtWidgets.QWidget):
 
         if self.combo.currentText() == "ascii":
             text = data.decode("ascii", errors="backslashreplace")
-        else:
+        elif self.combo.currentText() == "hex":
             text = " ".join([f"{byte:02X}" for byte in data])
+        else:
+            text = " ".join([f"{byte:3d}" for byte in data])
 
         self.text_edit.setText(text)
+        self.text_edit.moveCursor(QtGui.QTextCursor.MoveOperation.End)
 
     def pause_pressed(self, checked: bool):
         if checked:
