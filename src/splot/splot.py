@@ -7,6 +7,7 @@ import signal
 import sys
 import multiprocessing
 import time
+import typing
 
 import numpy as np
 import pyqtgraph as pg
@@ -16,12 +17,14 @@ from PyQt6 import QtCore, QtWidgets, QtGui, uic
 
 from .stream_processor import start_stream_processor
 from .ring_buffer import RingBuffer
+from .raw_data_viewer import RawDataViewer
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def parse_splot_dtype_string(text):
+def parse_splot_dtype_string(text: str) -> str:
     """Find pattern 'n[ABC]' and replace with n comma-separated repeats of 'ABC'.
 
     This function exists to allow users to easily specify complex packet structures,
@@ -38,11 +41,14 @@ def parse_splot_dtype_string(text):
     return re.sub(pattern, replacer, text)
 
 
-def vector_to_bit_traces(dat: np.ndarray[int], num_bits: int = None):
+def vector_to_bit_traces(dat: np.ndarray[int], num_bits: int = None) -> typing.Tuple[np.ndarray, np.ndarray]:
     """Take a vector of integers and return plotting vectors x and y.
     :returns: vectors x and y such that plotting x vs y yields traces for each individual
         bit, with each bit trace separate by a y=nan entry
     """
+    if dat is None or len(dat) == 0:
+        return np.empty(0), np.empty(0)
+
     if num_bits is None:
         if np.issubdtype(dat.dtype, np.integer):
             num_bits = dat.dtype.itemsize * 8
@@ -131,6 +137,8 @@ class Ui(QtWidgets.QMainWindow):
         self.plot_buffer = RingBuffer(self.plotLengthSpinBox.value(), adaptive_dtype=True)
 
         self.start_time = time.time_ns() // 1000
+
+        self.raw_data_viewer = None
 
     def populate_serial_options(self):
         option_map = {
@@ -356,6 +364,8 @@ class Ui(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         self.stream_processor_rpc("close")
+        if self.raw_data_viewer is not None:
+            self.raw_data_viewer.close()
 
     @QtCore.pyqtSlot(int)
     def on_serialPortComboBox_currentIndexChanged(self, index):
@@ -541,6 +551,18 @@ class Ui(QtWidgets.QMainWindow):
             # flush streamprocessor buffer, then start getting new data
             self.stream_processor_rpc("get_new_messages")
             self.plot_timer.start(33)
+
+    def on_rawDataViewerPushButton_clicked(self):
+        if self.raw_data_viewer is None:
+            self.raw_data_viewer = RawDataViewer(lambda: self.stream_processor_rpc("get_most_recent_serial_bytes"))
+            self.raw_data_viewer.destroyed.connect(self.close_raw_data_viewer)
+            self.raw_data_viewer.show()
+        else:
+            self.raw_data_viewer.raise_()
+            self.raw_data_viewer.activateWindow()
+
+    def close_raw_data_viewer(self):
+        self.raw_data_viewer = None
 
     def update_status_bar(self):
         bytes_received = self.stream_processor_rpc("get_bytes_received")

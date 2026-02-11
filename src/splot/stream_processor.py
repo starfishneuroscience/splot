@@ -61,6 +61,7 @@ class StreamProcessor:
         self.serial_read_function = None
 
         self.bytes_received = None
+        self._bytes_read = b""
 
     def connect_to_serial(self, port, is_socket, baudrate=None, parity=None, stopbits=None):
         self.disconnect_from_serial()
@@ -238,6 +239,7 @@ class StreamProcessor:
             if len(read) == 0:
                 continue
 
+            self._bytes_read = (self._bytes_read + read)[-10000:]
             self.bytes_received += len(read)
 
             # emit received serial data over zmq
@@ -351,6 +353,9 @@ class StreamProcessor:
 
     def get_bytes_received(self):
         return self.bytes_received
+
+    def get_most_recent_serial_bytes(self) -> bytes:
+        return self._bytes_read
 
     def close(self):
         self.running = False
