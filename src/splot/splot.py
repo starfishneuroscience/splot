@@ -554,7 +554,11 @@ class Ui(QtWidgets.QMainWindow):
 
     def on_rawDataViewerPushButton_clicked(self):
         if self.raw_data_viewer is None:
-            self.raw_data_viewer = RawDataViewer(lambda: self.stream_processor_rpc("get_most_recent_serial_bytes"))
+            self.raw_data_viewer = RawDataViewer(
+                get_data_function=lambda: self.stream_processor_rpc("get_most_recent_serial_bytes"),
+                clear_data_function=lambda: self.stream_processor_rpc("clear_most_recent_serial_bytes"),
+            )
+
             self.raw_data_viewer.destroyed.connect(self.close_raw_data_viewer)
             self.raw_data_viewer.show()
         else:

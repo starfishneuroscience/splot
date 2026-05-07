@@ -61,7 +61,7 @@ class StreamProcessor:
         self.serial_read_function = None
 
         self.bytes_received = None
-        self._bytes_read = b""
+        self._bytes_read = b""  # buffer for callers to view recent raw data
 
     def connect_to_serial(self, port, is_socket, baudrate=None, parity=None, stopbits=None):
         self.disconnect_from_serial()
@@ -356,6 +356,9 @@ class StreamProcessor:
 
     def get_most_recent_serial_bytes(self) -> bytes:
         return self._bytes_read
+
+    def clear_most_recent_serial_bytes(self) -> None:
+        self._bytes_read = b""
 
     def close(self):
         self.running = False

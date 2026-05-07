@@ -2,7 +2,7 @@ from PyQt6 import QtCore, QtWidgets, QtGui
 
 
 class RawDataViewer(QtWidgets.QWidget):
-    def __init__(self, get_data_function, update_interval_ms=50):
+    def __init__(self, get_data_function, clear_data_function, update_interval_ms=50):
         """Class for visualizing raw serial data in a textbox, as either ascii text
         or as a series of hex byte values.
 
@@ -31,6 +31,11 @@ class RawDataViewer(QtWidgets.QWidget):
         self.button.clicked.connect(self.pause_pressed)
         h_layout.addWidget(self.button)
         self.paused = False
+
+        self.clear_button = QtWidgets.QPushButton("Clear")
+        self.clear_button.setCheckable(False)
+        self.clear_button.clicked.connect(clear_data_function)
+        h_layout.addWidget(self.clear_button)
 
         self.text_edit = QtWidgets.QTextEdit()
         layout.addWidget(self.text_edit)

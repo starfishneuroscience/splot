@@ -83,8 +83,11 @@ class RingBuffer:
 
         return data
 
-    def get_valid_buffer(self):
+    def get_valid_buffer(self, unrolled=False):
         if self._full_buffer_valid:
+            if unrolled:
+                return np.roll(self._buffer, self._write_ptr)
+
             return self._buffer
         else:
             return self._buffer[: self._write_ptr]
