@@ -140,6 +140,9 @@ class Ui(QtWidgets.QMainWindow):
 
         self.raw_data_viewer = None
 
+        self.transmitDataLineEdit.returnPressed.connect(self.transmit_serial_data)
+        self.transmitDataPushButton.clicked.connect(self.transmit_serial_data)
+
     def populate_serial_options(self):
         option_map = {
             self.serialBaudRateComboBox: serial.serialutil.SerialBase.BAUDRATES,
@@ -443,8 +446,10 @@ class Ui(QtWidgets.QMainWindow):
 
         visible_plot_indices = [i for i in range(len(self.plots)) if self.plots[i].isVisible()]
         # make sure the last plot has an x-axis visible and the 2nd-to-last doesn't
-        self.plots[visible_plot_indices[-2]].hideAxis("bottom")
-        self.plots[visible_plot_indices[-1]].showAxis("bottom")
+        if len(visible_plot_indices) > 1:
+            self.plots[visible_plot_indices[-2]].hideAxis("bottom")
+        if len(visible_plot_indices):
+            self.plots[visible_plot_indices[-1]].showAxis("bottom")
 
     @QtCore.pyqtSlot(int)
     def on_seriesPlotTypeComboBox_currentIndexChanged(self, index):
@@ -505,13 +510,13 @@ class Ui(QtWidgets.QMainWindow):
         elif not checked:
             self.stream_processor_rpc("stop_zmq_forwarding")
 
-    @QtCore.pyqtSlot()
-    def on_transmitDataPushButton_clicked(self):
+    def transmit_serial_data(self):
         string_to_send = self.transmitDataLineEdit.text()
         if len(string_to_send) == 0:
             return
         bytes_to_send = string_to_send.encode("latin-1").decode("unicode_escape").encode("latin-1")
         self.stream_processor_rpc("transmit_data", bytes_to_send)
+        self.transmitDataLineEdit.clear()
 
     def stream_processor_rpc(self, method: str, *args, **kwargs):
         command = {"method": method, "args": args, "kwargs": kwargs}
