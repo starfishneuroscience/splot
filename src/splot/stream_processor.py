@@ -191,7 +191,10 @@ class StreamProcessor:
             logger.info("Stopping zmq->serial forwarding")
 
     def transmit_data(self, data: bytes):
-        self.serial_conn.write(data)
+        if type(self.serial_conn) is serial.Serial:
+            self.serial_conn.write(data)
+        elif type(self.serial_conn) is socket.socket:
+            self.serial_conn.sendall(data)
 
     def handle_rpc_requests(self):
         if self.rpc_conn is None:

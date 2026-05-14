@@ -35,6 +35,7 @@ class RawDataViewer(QtWidgets.QWidget):
         self.clear_button = QtWidgets.QPushButton("Clear")
         self.clear_button.setCheckable(False)
         self.clear_button.clicked.connect(clear_data_function)
+
         h_layout.addWidget(self.clear_button)
 
         self.text_edit = QtWidgets.QTextEdit()
@@ -44,6 +45,8 @@ class RawDataViewer(QtWidgets.QWidget):
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_text_box)
         self.timer.start(self.update_interval_ms)
+
+        self.clear_button.clicked.connect(self.text_edit.clear)
 
     def update_text_box(self):
         data = self.get_data_function()  # returns bytes
